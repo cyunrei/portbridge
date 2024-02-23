@@ -8,20 +8,27 @@ import (
 	"net"
 )
 
-func startPortForwarding(sourceAddr, destinationAddr, protocol string) error {
+type ForwardingConfig struct {
+	SourceAddr       string
+	DestinationAddr  string
+	Protocol         string
+	TCPDataForwarder TCPDataForwarder
+}
+
+func startPortForwarding(c ForwardingConfig) error {
 	var err error
-	switch protocol {
+	switch c.Protocol {
 	case "tcp":
-		err = startTCPPortForwarding(sourceAddr, destinationAddr)
+		err = startTCPPortForwarding(c.SourceAddr, c.DestinationAddr, c.TCPDataForwarder)
 	case "udp":
-		err = startUDPPortForwarding(sourceAddr, destinationAddr)
+		err = startUDPPortForwarding(c.SourceAddr, c.DestinationAddr)
 	default:
-		return errors.New("unsupported protocol: " + protocol)
+		return errors.New("unsupported protocol: " + c.Protocol)
 	}
 	return err
 }
 
-func startTCPPortForwarding(sourceAddr, destinationAddr string) error {
+func startTCPPortForwarding(sourceAddr, destinationAddr string, forwarder TCPDataForwarder) error {
 	localListener, err := net.Listen("tcp", sourceAddr)
 	if err != nil {
 		return fmt.Errorf("unable to bind to local TCP address: %s\n", err)
@@ -46,11 +53,14 @@ func startTCPPortForwarding(sourceAddr, destinationAddr string) error {
 			continue
 		}
 
-		go forwardTCPData(localConn, remoteConn)
+		go forwarder.Forward(localConn, remoteConn)
+
 	}
 }
 
-func forwardTCPData(sourceConn, destinationConn net.Conn) {
+type SimpleTCPDataForwarder struct{}
+
+func (f *SimpleTCPDataForwarder) Forward(sourceConn, destinationConn net.Conn) {
 	go func() {
 		_, err := io.Copy(sourceConn, destinationConn)
 		if err != nil {
