@@ -48,20 +48,18 @@ test:
 	go test
 
 .PHONY: archive
+define create_archive
+	cd $(BUILD_DIR) && tar -czvf $1-$2.tar.gz $(PROJECT_NAME)-$2$3 \
+		-C ../ LICENSE rules_example.json rules_example.yaml README.md
+	cd $(BUILD_DIR) && sha256sum $1-$2.tar.gz > $1-$2.tar.gz.sha256
+endef
 archive:
-	cd $(BUILD_DIR) && tar -czvf $(PROJECT_NAME)-linux-aarch64.tar.gz $(PROJECT_NAME)-linux-aarch64
-	cd $(BUILD_DIR) && tar -czvf $(PROJECT_NAME)-linux-x86_64.tar.gz $(PROJECT_NAME)-linux-x86_64
-	cd $(BUILD_DIR) && tar -czvf $(PROJECT_NAME)-windows-aarch64.tar.gz $(PROJECT_NAME)-windows-aarch64.exe
-	cd $(BUILD_DIR) && tar -czvf $(PROJECT_NAME)-windows-x86_64.tar.gz $(PROJECT_NAME)-windows-x86_64.exe
-	cd $(BUILD_DIR) && tar -czvf $(PROJECT_NAME)-darwin-aarch64.tar.gz $(PROJECT_NAME)-darwin-aarch64
-	cd $(BUILD_DIR) && tar -czvf $(PROJECT_NAME)-darwin-x86_64.tar.gz $(PROJECT_NAME)-darwin-x86_64
-
-	cd $(BUILD_DIR) && sha256sum $(PROJECT_NAME)-linux-aarch64.tar.gz > $(PROJECT_NAME)-linux-aarch64.tar.gz.sha256
-	cd $(BUILD_DIR) && sha256sum $(PROJECT_NAME)-linux-x86_64.tar.gz > $(PROJECT_NAME)-linux-x86_64.tar.gz.sha256
-	cd $(BUILD_DIR) && sha256sum $(PROJECT_NAME)-windows-aarch64.tar.gz > $(PROJECT_NAME)-windows-aarch64.tar.gz.sha256
-	cd $(BUILD_DIR) && sha256sum $(PROJECT_NAME)-windows-x86_64.tar.gz > $(PROJECT_NAME)-windows-x86_64.tar.gz.sha256
-	cd $(BUILD_DIR) && sha256sum $(PROJECT_NAME)-darwin-aarch64.tar.gz > $(PROJECT_NAME)-darwin-aarch64.tar.gz.sha256
-	cd $(BUILD_DIR) && sha256sum $(PROJECT_NAME)-darwin-x86_64.tar.gz > $(PROJECT_NAME)-darwin-x86_64.tar.gz.sha256
+	$(call create_archive,$(PROJECT_NAME),linux-aarch64)
+	$(call create_archive,$(PROJECT_NAME),linux-x86_64)
+	$(call create_archive,$(PROJECT_NAME),windows-aarch64,.exe)
+	$(call create_archive,$(PROJECT_NAME),windows-x86_64,.exe)
+	$(call create_archive,$(PROJECT_NAME),darwin-aarch64)
+	$(call create_archive,$(PROJECT_NAME),darwin-x86_64)
 
 .PHONY: release
-release: test build-all archive
+release: clean test build-all archive
