@@ -1,0 +1,10 @@
+- source_addr: "127.0.0.2:53"
+  destination_addr: "[2606:4700:4700::1111]:53"
+  protocol: "udp"
+- source_addr: "127.0.0.1:7777"
+  destination_addr: "[::1]:7777"
+  protocol: "tcp"
+- source_addr: ":8081"
+  destination_addr: "127.0.0.1:8080"
+  protocol: "tcp"
+  bandwidth_limit: 1024
