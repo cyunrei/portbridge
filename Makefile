@@ -43,6 +43,10 @@ clean:
 	@$(GO) mod tidy
 	@rm -rf $(BUILD_DIR)
 
+.PHONY: test
+test:
+	go test
+
 .PHONY: archive
 archive:
 	cd $(BUILD_DIR) && tar -czvf $(PROJECT_NAME)-linux-aarch64.tar.gz $(PROJECT_NAME)-linux-aarch64
@@ -60,4 +64,4 @@ archive:
 	cd $(BUILD_DIR) && sha256sum $(PROJECT_NAME)-darwin-x86_64.tar.gz > $(PROJECT_NAME)-darwin-x86_64.tar.gz.sha256
 
 .PHONY: release
-release: build-all archive
+release: test build-all archive
