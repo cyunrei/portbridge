@@ -44,6 +44,9 @@ func main() {
 		if parseRulesErr != nil {
 			log.Fatalf("Parse rules from file: %s", parseRulesErr)
 		}
+		if len(rules) == 0 {
+			log.Fatalf("No rules found in the file '%s'. Please provide at least one rule", opts.RuleFile)
+		}
 		break
 	case opts.Help:
 		parser.WriteHelp(os.Stdout)
