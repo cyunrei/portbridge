@@ -13,6 +13,7 @@ type ForwardingConfig struct {
 	DestinationAddr  string
 	Protocol         string
 	TCPDataForwarder TCPDataForwarder
+	UDPDataForwarder UDPDataForwarder
 }
 
 func startPortForwarding(c ForwardingConfig) error {
@@ -21,7 +22,7 @@ func startPortForwarding(c ForwardingConfig) error {
 	case "tcp":
 		err = startTCPPortForwarding(c.SourceAddr, c.DestinationAddr, c.TCPDataForwarder)
 	case "udp":
-		err = startUDPPortForwarding(c.SourceAddr, c.DestinationAddr)
+		err = startUDPPortForwarding(c.SourceAddr, c.DestinationAddr, c.UDPDataForwarder)
 	default:
 		return errors.New("unsupported protocol: " + c.Protocol)
 	}
@@ -58,6 +59,8 @@ func startTCPPortForwarding(sourceAddr, destinationAddr string, forwarder TCPDat
 	}
 }
 
+const DefaultUDPBufferSize uint64 = 1024
+
 type SimpleTCPDataForwarder struct{}
 
 func (f *SimpleTCPDataForwarder) Forward(sourceConn, destinationConn net.Conn) {
@@ -76,7 +79,7 @@ func (f *SimpleTCPDataForwarder) Forward(sourceConn, destinationConn net.Conn) {
 	}()
 }
 
-func startUDPPortForwarding(sourceAddr, destinationAddr string) error {
+func startUDPPortForwarding(sourceAddr, destinationAddr string, forwarder UDPDataForwarder) error {
 	localUDPAddr, err := net.ResolveUDPAddr("udp", sourceAddr)
 	if err != nil {
 		return fmt.Errorf("error resolving local address: %s\n", err)
@@ -94,21 +97,33 @@ func startUDPPortForwarding(sourceAddr, destinationAddr string) error {
 
 	log.Printf("UDP Port forwarding is active. Forwarding from %s to %s\n", sourceAddr, destinationAddr)
 
-	forwardUDPData(conn, remoteUDPAddr)
-
-	return nil
-}
-
-func forwardUDPData(conn *net.UDPConn, remoteAddr *net.UDPAddr) {
-	bufferSize := 1024
-
-	remoteConn, err := net.DialUDP("udp", nil, remoteAddr)
+	remoteConn, err := net.DialUDP("udp", nil, remoteUDPAddr)
 	if err != nil {
 		log.Fatalf("Error establishing remote connection: %s\n", err)
 	}
 	defer remoteConn.Close()
 
-	connBuffer := make([]byte, bufferSize)
+	forwarder.Forward(*conn, *remoteConn)
+
+	return nil
+}
+
+type SimpleUDPDataForwarder struct {
+	BufferSize uint64
+}
+
+func NewSimpleUDPDataForwarder() *SimpleUDPDataForwarder {
+	return &SimpleUDPDataForwarder{
+		BufferSize: DefaultUDPBufferSize,
+	}
+}
+
+func (f *SimpleUDPDataForwarder) SetBufferSize(size uint64) {
+	f.BufferSize = size
+}
+
+func (f *SimpleUDPDataForwarder) Forward(conn, remoteConn net.UDPConn) {
+	connBuffer := make([]byte, f.BufferSize)
 
 	type dataWithAddr struct {
 		data []byte
@@ -137,7 +152,7 @@ func forwardUDPData(conn *net.UDPConn, remoteAddr *net.UDPAddr) {
 			return
 		}
 
-		remoteBuffer := make([]byte, bufferSize)
+		remoteBuffer := make([]byte, f.BufferSize)
 		m, err := remoteConn.Read(remoteBuffer)
 		if err != nil {
 			log.Errorf("Error reading from remote UDP: %s\n", err)

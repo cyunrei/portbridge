@@ -12,13 +12,14 @@ import (
 )
 
 var version string
-var forwarder TCPDataForwarder
+var tcpForwarder TCPDataForwarder
 
 type Options struct {
 	SourceAddr      string `short:"s" long:"source" description:"Source address and port to bind locally" required:"true"`
 	DestinationAddr string `short:"d" long:"destination" description:"Destination address and port to connect remotely" required:"true"`
 	Protocol        string `short:"p" long:"protocol" description:"Specify the source protocol type" required:"true"`
 	BandwidthLimit  int64  `short:"b" long:"bandwidth-limit" description:"TCP Bandwidth limit in KiB" default:"0"`
+	UDPBufferSize   uint64 `long:"udp-buffer-size" description:"UDP data forwarding buffer size in bytes" default:"1024"`
 	RuleFile        string `short:"f" long:"rule-file" description:"Batch port forwarding file path"`
 	Help            bool   `short:"h" long:"help" description:"Show help message"`
 	Version         bool   `short:"v" long:"version" description:"Print the version number"`
@@ -29,7 +30,7 @@ func init() {
 		FullTimestamp:   true,
 		TimestampFormat: time.StampMilli,
 	})
-	forwarder = &SimpleTCPDataForwarder{}
+	tcpForwarder = &SimpleTCPDataForwarder{}
 }
 
 func main() {
@@ -67,19 +68,22 @@ func main() {
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 	for _, rule := range rules {
 		rule := rule
-		innerForwarder := forwarder
+		innerTCPForwarder := tcpForwarder
 		if rule.BandwidthLimit > 0 {
-			innerForwarder = &TrafficControlTCPDataForwarder{
+			innerTCPForwarder = &TrafficControlTCPDataForwarder{
 				BandwidthLimit: rule.BandwidthLimit,
 			}
 			log.Infof("Forward TCP with bandwidth limit: %d KiB/s", opts.BandwidthLimit)
 		}
+		innerUDPForwarder := NewSimpleUDPDataForwarder()
+		innerUDPForwarder.SetBufferSize(rule.UDPBufferSize)
 		go func() {
 			err := startPortForwarding(ForwardingConfig{
 				SourceAddr:       rule.SourceAddr,
 				DestinationAddr:  rule.DestinationAddr,
 				Protocol:         rule.Protocol,
-				TCPDataForwarder: innerForwarder,
+				TCPDataForwarder: innerTCPForwarder,
+				UDPDataForwarder: innerUDPForwarder,
 			})
 			if err != nil {
 				log.Errorf("Error: %s", err)

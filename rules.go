@@ -13,6 +13,7 @@ type Rule struct {
 	DestinationAddr string `json:"destination_addr" yaml:"destination_addr"`
 	Protocol        string `json:"protocol" yaml:"protocol"`
 	BandwidthLimit  int64  `json:"bandwidth_limit" yaml:"bandwidth_limit"`
+	UDPBufferSize   uint64 `json:"udp_buffer_size" yaml:"udp_buffer_size"`
 }
 
 func parseRulesFromFile(filePath string) ([]Rule, error) {
@@ -45,5 +46,6 @@ func parseRuleFromOptions(opts Options) Rule {
 		DestinationAddr: opts.DestinationAddr,
 		Protocol:        opts.Protocol,
 		BandwidthLimit:  opts.BandwidthLimit,
+		UDPBufferSize:   opts.UDPBufferSize,
 	}
 }
