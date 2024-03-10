@@ -1,4 +1,4 @@
-package main
+package rules
 
 import (
 	"reflect"
@@ -30,7 +30,7 @@ func TestParseRulesFile(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.filePath, func(t *testing.T) {
-			rules, err := parseRulesFromFile(testCase.filePath)
+			rules, err := ParseRulesFromFile(testCase.filePath)
 			if err != nil {
 				t.Fatalf("Error parsing file %s: %v", testCase.filePath, err)
 			}

@@ -1,8 +1,9 @@
-package main
+package rules
 
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/cyunrei/portbridge/cmd/options"
 	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
@@ -16,7 +17,7 @@ type Rule struct {
 	UDPBufferSize   uint64 `json:"udp_buffer_size" yaml:"udp_buffer_size"`
 }
 
-func parseRulesFromFile(filePath string) ([]Rule, error) {
+func ParseRulesFromFile(filePath string) ([]Rule, error) {
 	file, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err
@@ -40,7 +41,7 @@ func parseRulesFromFile(filePath string) ([]Rule, error) {
 	return rules, nil
 }
 
-func parseRuleFromOptions(opts Options) Rule {
+func ParseRuleFromOptions(opts options.Options) Rule {
 	return Rule{
 		SourceAddr:      opts.SourceAddr,
 		DestinationAddr: opts.DestinationAddr,
