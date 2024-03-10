@@ -1,10 +1,9 @@
-package main
+package forward
 
 import (
 	"errors"
 	"fmt"
 	log "github.com/sirupsen/logrus"
-	"io"
 	"net"
 )
 
@@ -16,7 +15,36 @@ type ForwardingConfig struct {
 	UDPDataForwarder UDPDataForwarder
 }
 
-func startPortForwarding(c ForwardingConfig) error {
+func NewForwardingConfig() *ForwardingConfig {
+	return &ForwardingConfig{}
+}
+
+func (c *ForwardingConfig) WithSourceAddr(sourceAddr string) *ForwardingConfig {
+	c.SourceAddr = sourceAddr
+	return c
+}
+
+func (c *ForwardingConfig) WithDestinationAddr(destinationAddr string) *ForwardingConfig {
+	c.DestinationAddr = destinationAddr
+	return c
+}
+
+func (c *ForwardingConfig) WithProtocol(protocol string) *ForwardingConfig {
+	c.Protocol = protocol
+	return c
+}
+
+func (c *ForwardingConfig) WithTCPDataForwarder(tcpDataForwarder TCPDataForwarder) *ForwardingConfig {
+	c.TCPDataForwarder = tcpDataForwarder
+	return c
+}
+
+func (c *ForwardingConfig) WithUDPDataForwarder(udpDataForwarder UDPDataForwarder) *ForwardingConfig {
+	c.UDPDataForwarder = udpDataForwarder
+	return c
+}
+
+func (c *ForwardingConfig) StartPortForwarding() error {
 	var err error
 	switch c.Protocol {
 	case "tcp":
@@ -59,26 +87,6 @@ func startTCPPortForwarding(sourceAddr, destinationAddr string, forwarder TCPDat
 	}
 }
 
-const DefaultUDPBufferSize uint64 = 1024
-
-type SimpleTCPDataForwarder struct{}
-
-func (f *SimpleTCPDataForwarder) Forward(sourceConn, destinationConn net.Conn) {
-	go func() {
-		_, err := io.Copy(sourceConn, destinationConn)
-		if err != nil {
-			log.Printf("Connection disconnted from %s\n", sourceConn.RemoteAddr())
-		}
-		sourceConn.Close()
-		destinationConn.Close()
-	}()
-	go func() {
-		io.Copy(destinationConn, sourceConn)
-		sourceConn.Close()
-		destinationConn.Close()
-	}()
-}
-
 func startUDPPortForwarding(sourceAddr, destinationAddr string, forwarder UDPDataForwarder) error {
 	localUDPAddr, err := net.ResolveUDPAddr("udp", sourceAddr)
 	if err != nil {
@@ -106,67 +114,4 @@ func startUDPPortForwarding(sourceAddr, destinationAddr string, forwarder UDPDat
 	forwarder.Forward(*conn, *remoteConn)
 
 	return nil
-}
-
-type SimpleUDPDataForwarder struct {
-	BufferSize uint64
-}
-
-func NewSimpleUDPDataForwarder() *SimpleUDPDataForwarder {
-	return &SimpleUDPDataForwarder{
-		BufferSize: DefaultUDPBufferSize,
-	}
-}
-
-func (f *SimpleUDPDataForwarder) SetBufferSize(size uint64) {
-	f.BufferSize = size
-}
-
-func (f *SimpleUDPDataForwarder) Forward(conn, remoteConn net.UDPConn) {
-	connBuffer := make([]byte, f.BufferSize)
-
-	type dataWithAddr struct {
-		data []byte
-		addr *net.UDPAddr
-	}
-
-	dataChannel := make(chan dataWithAddr)
-
-	readDataFromConn := func() {
-		for {
-			n, connAddr, err := conn.ReadFromUDP(connBuffer)
-			if err != nil {
-				log.Errorf("Error reading from UDP: %s\n", err)
-				continue
-			}
-			dataChannel <- dataWithAddr{connBuffer[:n], connAddr}
-		}
-	}
-
-	go readDataFromConn()
-
-	writeDataToRemote := func(data []byte, addr *net.UDPAddr) {
-		_, err := remoteConn.Write(data)
-		if err != nil {
-			log.Errorf("Error writing to remote UDP: %s\n", err)
-			return
-		}
-
-		remoteBuffer := make([]byte, f.BufferSize)
-		m, err := remoteConn.Read(remoteBuffer)
-		if err != nil {
-			log.Errorf("Error reading from remote UDP: %s\n", err)
-			return
-		}
-
-		_, err = conn.WriteToUDP(remoteBuffer[:m], addr)
-		if err != nil {
-			log.Errorf("Error writing to UDP: %s\n", err)
-		}
-	}
-
-	for {
-		dataWithAddr := <-dataChannel
-		go writeDataToRemote(dataWithAddr.data, dataWithAddr.addr)
-	}
 }

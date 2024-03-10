@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	. "github.com/cyunrei/portbridge/pkg/forward"
 	"github.com/jessevdk/go-flags"
 	log "github.com/sirupsen/logrus"
 	"os"
@@ -30,7 +31,7 @@ func init() {
 		FullTimestamp:   true,
 		TimestampFormat: time.StampMilli,
 	})
-	tcpForwarder = &SimpleTCPDataForwarder{}
+	tcpForwarder = NewSimpleTCPDataForwarder()
 }
 
 func main() {
@@ -70,21 +71,20 @@ func main() {
 		rule := rule
 		innerTCPForwarder := tcpForwarder
 		if rule.BandwidthLimit > 0 {
-			innerTCPForwarder = &TrafficControlTCPDataForwarder{
-				BandwidthLimit: rule.BandwidthLimit,
-			}
+			innerTCPForwarder = NewTrafficControlTCPDataForwarder().SetBandwidthLimit(rule.BandwidthLimit)
 			log.Infof("Forward TCP with bandwidth limit: %d KiB/s", opts.BandwidthLimit)
 		}
 		innerUDPForwarder := NewSimpleUDPDataForwarder()
 		innerUDPForwarder.SetBufferSize(rule.UDPBufferSize)
 		go func() {
-			err := startPortForwarding(ForwardingConfig{
-				SourceAddr:       rule.SourceAddr,
-				DestinationAddr:  rule.DestinationAddr,
-				Protocol:         rule.Protocol,
-				TCPDataForwarder: innerTCPForwarder,
-				UDPDataForwarder: innerUDPForwarder,
-			})
+			fc := NewForwardingConfig().WithSourceAddr(rule.SourceAddr).
+				WithDestinationAddr(rule.DestinationAddr).
+				WithProtocol(rule.Protocol).
+				WithTCPDataForwarder(innerTCPForwarder).
+				WithUDPDataForwarder(innerUDPForwarder)
+
+			err := fc.StartPortForwarding()
+
 			if err != nil {
 				log.Errorf("Error: %s", err)
 				atomic.AddInt64(&errorCount, 1)
