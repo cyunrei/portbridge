@@ -100,49 +100,58 @@ func startUDPPortForwarding(sourceAddr, destinationAddr string) error {
 }
 
 func forwardUDPData(conn *net.UDPConn, remoteAddr *net.UDPAddr) {
-	buffer := make([]byte, 2048)
+	bufferSize := 1024
 
-	for {
-		n, clientAddr, err := conn.ReadFromUDP(buffer)
+	remoteConn, err := net.DialUDP("udp", nil, remoteAddr)
+	if err != nil {
+		log.Fatalf("Error establishing remote connection: %s\n", err)
+	}
+	defer remoteConn.Close()
+
+	connBuffer := make([]byte, bufferSize)
+
+	type dataWithAddr struct {
+		data []byte
+		addr *net.UDPAddr
+	}
+
+	dataChannel := make(chan dataWithAddr)
+
+	readDataFromConn := func() {
+		for {
+			n, connAddr, err := conn.ReadFromUDP(connBuffer)
+			if err != nil {
+				log.Errorf("Error reading from UDP: %s\n", err)
+				continue
+			}
+			dataChannel <- dataWithAddr{connBuffer[:n], connAddr}
+		}
+	}
+
+	go readDataFromConn()
+
+	writeDataToRemote := func(data []byte, addr *net.UDPAddr) {
+		_, err := remoteConn.Write(data)
 		if err != nil {
-			log.Errorf("Error reading from UDP: %s\n", err)
+			log.Errorf("Error writing to remote UDP: %s\n", err)
+			return
 		}
 
-		go func() {
-			remoteConn, err := net.DialUDP("udp", nil, remoteAddr)
-			if err != nil {
-				log.Errorf("Error establishing remote connection: %s\n", err)
-			}
-			defer remoteConn.Close()
+		remoteBuffer := make([]byte, bufferSize)
+		m, err := remoteConn.Read(remoteBuffer)
+		if err != nil {
+			log.Errorf("Error reading from remote UDP: %s\n", err)
+			return
+		}
 
-			_, err = remoteConn.Write(buffer[:n])
-			if err != nil {
-				log.Errorf("Error writing to remote UDP: %s\n", err)
-			}
+		_, err = conn.WriteToUDP(remoteBuffer[:m], addr)
+		if err != nil {
+			log.Errorf("Error writing to UDP: %s\n", err)
+		}
+	}
 
-			remoteBuffer := make([]byte, 2048)
-			m, err := remoteConn.Read(remoteBuffer)
-			if err != nil {
-				log.Errorf("Error reading from remote UDP: %s\n", err)
-			}
-
-			_, err = conn.WriteToUDP(remoteBuffer[:m], clientAddr)
-			if err != nil {
-				log.Errorf("Error writing to UDP: %s\n", err)
-			}
-		}()
-
-		go func() {
-			n, _, err = conn.ReadFromUDP(buffer)
-			if err != nil {
-				log.Errorf("Error reading from remote UDP: %s\n", err)
-			}
-
-			_, err = conn.WriteToUDP(buffer[:n], remoteAddr)
-			if err != nil {
-				log.Errorf("Error writing to remote UDP: %s\n", err)
-			}
-		}()
-
+	for {
+		dataWithAddr := <-dataChannel
+		go writeDataToRemote(dataWithAddr.data, dataWithAddr.addr)
 	}
 }
