@@ -6,7 +6,7 @@ Portbridge is a user-space port-forwarding tool with cross-platform support.
 
 - Cross-Platform Support (Linux / Windows / Darwin)
 - TCP and UDP Forward Support
-- Bandwidth Limit Support for TCP
+- TCP and UDP Bandwidth Limit Support
 - Batch Port Forwarding Rules Support
 
 # Usage
@@ -17,7 +17,7 @@ Portbridge Options:
   -s, --source=             Source address and port to bind locally
   -d, --destination=        Destination address and port to connect remotely
   -p, --protocol=           Specify the source protocol type
-  -b, --bandwidth-limit=    TCP Bandwidth limit in KiB (default: 0)
+  -b, --bandwidth-limit=    Bandwidth limit in KiB (default: 0)
       --udp-buffer-size=    UDP data forwarding buffer size in bytes (default: 1024)
       --udp-timeout-second= UDP data forwarding time out in second (default: 5)
   -f, --rule-file=          Batch port forwarding file path
@@ -25,7 +25,7 @@ Portbridge Options:
   -v, --version             Print the version number
 ```
 
-Example:
+Examples:
 
 - Access the Cloudflare DNS (ipv6) via 127.0.0.2:53 with 100 udp buffer size
 

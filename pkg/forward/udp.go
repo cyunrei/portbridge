@@ -1,7 +1,8 @@
 package forward
 
 import (
-	"errors"
+	"context"
+	"golang.org/x/time/rate"
 	"net"
 	"time"
 )
@@ -21,7 +22,11 @@ func NewUDPDataForwarder() *UDPDataForwarder {
 }
 
 func (f *UDPDataForwarder) Forward(sourceConn, destinationConn net.Conn) error {
-	return f.ForwardWithNormal(sourceConn, destinationConn)
+	if f.BandwidthLimit != DefaultBandwidthLimit {
+		return f.ForwardWithTrafficControl(sourceConn, destinationConn)
+	} else {
+		return f.ForwardWithNormal(sourceConn, destinationConn)
+	}
 }
 
 func (f *UDPDataForwarder) ForwardWithNormal(sourceConn, destinationConn net.Conn) error {
@@ -47,8 +52,7 @@ func (f *UDPDataForwarder) ForwardWithNormal(sourceConn, destinationConn net.Con
 			destinationConnBuffer := make([]byte, f.BufferSize)
 			destinationConn.SetReadDeadline(time.Now().Add(f.DeadlineSecond * time.Second))
 			m, _, err := destinationUDPConn.ReadFromUDP(destinationConnBuffer)
-			var netErr net.Error
-			if errors.As(err, &netErr) && netErr.Timeout() {
+			if err != nil {
 				return
 			}
 
@@ -62,7 +66,52 @@ func (f *UDPDataForwarder) ForwardWithNormal(sourceConn, destinationConn net.Con
 }
 
 func (f *UDPDataForwarder) ForwardWithTrafficControl(sourceConn, destinationConn net.Conn) error {
-	return f.ForwardWithNormal(sourceConn, destinationConn)
+	sourceUDPConn, _ := sourceConn.(*net.UDPConn)
+	destinationUDPConn, _ := destinationConn.(*net.UDPConn)
+
+	limiter := rate.NewLimiter(rate.Limit(f.BandwidthLimit*1024/8), int(f.BandwidthLimit*1024/8))
+
+	sourceConnBuffer := make([]byte, f.BufferSize)
+	for {
+		sourceConn.SetReadDeadline(time.Now().Add(f.DeadlineSecond * time.Second))
+		n, sourceConnAddr, err := sourceUDPConn.ReadFromUDP(sourceConnBuffer)
+		if err != nil {
+			continue
+		}
+
+		data := make([]byte, n)
+		copy(data, sourceConnBuffer[:n])
+
+		go func(data []byte, sourceConnAddr *net.UDPAddr) {
+			err := limiter.WaitN(context.Background(), n)
+			if err != nil {
+				return
+			}
+
+			_, err = destinationConn.Write(data)
+			if err != nil {
+				return
+			}
+
+			destinationConnBuffer := make([]byte, f.BufferSize)
+			destinationConn.SetReadDeadline(time.Now().Add(f.DeadlineSecond * time.Second))
+			m, _, err := destinationUDPConn.ReadFromUDP(destinationConnBuffer)
+			if err != nil {
+				return
+			}
+
+			err = limiter.WaitN(context.Background(), m)
+			if err != nil {
+				return
+			}
+
+			_, err = sourceUDPConn.WriteToUDP(destinationConnBuffer[:m], sourceConnAddr)
+			if err != nil {
+				return
+			}
+
+		}(data, sourceConnAddr)
+	}
 }
 
 func (f *UDPDataForwarder) SetBandwidthLimit(bandwidthLimit uint64) *UDPDataForwarder {

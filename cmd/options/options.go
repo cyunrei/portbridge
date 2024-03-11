@@ -4,7 +4,7 @@ type Options struct {
 	SourceAddr       string `short:"s" long:"source" description:"Source address and port to bind locally" required:"true"`
 	DestinationAddr  string `short:"d" long:"destination" description:"Destination address and port to connect remotely" required:"true"`
 	Protocol         string `short:"p" long:"protocol" description:"Specify the source protocol type" required:"true"`
-	BandwidthLimit   uint64 `short:"b" long:"bandwidth-limit" description:"TCP Bandwidth limit in KiB" default:"0"`
+	BandwidthLimit   uint64 `short:"b" long:"bandwidth-limit" description:"Bandwidth limit in KiB" default:"0"`
 	UDPBufferSize    uint64 `long:"udp-buffer-size" description:"UDP data forwarding buffer size in bytes" default:"1024"`
 	UDPTimeoutSecond uint64 `long:"udp-timeout-second" description:"UDP data forwarding time out in second" default:"5"`
 	RuleFile         string `short:"f" long:"rule-file" description:"Batch port forwarding file path"`
