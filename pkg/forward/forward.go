@@ -19,52 +19,52 @@ func NewForwardingConfig() *ForwardingConfig {
 	return &ForwardingConfig{}
 }
 
-func (c *ForwardingConfig) WithSourceAddr(sourceAddr string) *ForwardingConfig {
-	c.SourceAddr = sourceAddr
-	return c
+func (f *ForwardingConfig) WithSourceAddr(sourceAddr string) *ForwardingConfig {
+	f.SourceAddr = sourceAddr
+	return f
 }
 
-func (c *ForwardingConfig) WithDestinationAddr(destinationAddr string) *ForwardingConfig {
-	c.DestinationAddr = destinationAddr
-	return c
+func (f *ForwardingConfig) WithDestinationAddr(destinationAddr string) *ForwardingConfig {
+	f.DestinationAddr = destinationAddr
+	return f
 }
 
-func (c *ForwardingConfig) WithProtocol(protocol string) *ForwardingConfig {
-	c.Protocol = protocol
-	return c
+func (f *ForwardingConfig) WithProtocol(protocol string) *ForwardingConfig {
+	f.Protocol = protocol
+	return f
 }
 
-func (c *ForwardingConfig) WithTCPDataForwarder(tcpDataForwarder TCPDataForwarder) *ForwardingConfig {
-	c.TCPDataForwarder = tcpDataForwarder
-	return c
+func (f *ForwardingConfig) WithTCPDataForwarder(tcpDataForwarder TCPDataForwarder) *ForwardingConfig {
+	f.TCPDataForwarder = tcpDataForwarder
+	return f
 }
 
-func (c *ForwardingConfig) WithUDPDataForwarder(udpDataForwarder UDPDataForwarder) *ForwardingConfig {
-	c.UDPDataForwarder = udpDataForwarder
-	return c
+func (f *ForwardingConfig) WithUDPDataForwarder(udpDataForwarder UDPDataForwarder) *ForwardingConfig {
+	f.UDPDataForwarder = udpDataForwarder
+	return f
 }
 
-func (c *ForwardingConfig) StartPortForwarding() error {
+func (f *ForwardingConfig) StartPortForwarding() error {
 	var err error
-	switch c.Protocol {
+	switch f.Protocol {
 	case "tcp":
-		err = startTCPPortForwarding(c.SourceAddr, c.DestinationAddr, c.TCPDataForwarder)
+		err = f.startTCPPortForwarding()
 	case "udp":
-		err = startUDPPortForwarding(c.SourceAddr, c.DestinationAddr, c.UDPDataForwarder)
+		err = f.startUDPPortForwarding()
 	default:
-		return errors.New("unsupported protocol: " + c.Protocol)
+		return errors.New("unsupported protocol: " + f.Protocol)
 	}
 	return err
 }
 
-func startTCPPortForwarding(sourceAddr, destinationAddr string, forwarder TCPDataForwarder) error {
-	localListener, err := net.Listen("tcp", sourceAddr)
+func (f *ForwardingConfig) startTCPPortForwarding() error {
+	localListener, err := net.Listen("tcp", f.SourceAddr)
 	if err != nil {
 		return fmt.Errorf("unable to bind to local TCP address: %s\n", err)
 	}
 	defer localListener.Close()
 
-	log.Printf("TCP Port forwarding is active. Forwarding from %s to %s\n", sourceAddr, destinationAddr)
+	log.Printf("TCP Port forwarding is active. Forwarding from %s to %s\n", f.SourceAddr, f.DestinationAddr)
 
 	for {
 		localConn, err := localListener.Accept()
@@ -75,7 +75,7 @@ func startTCPPortForwarding(sourceAddr, destinationAddr string, forwarder TCPDat
 
 		log.Printf("TCP connection established from %s\n", localConn.RemoteAddr())
 
-		remoteConn, err := net.Dial("tcp", destinationAddr)
+		remoteConn, err := net.Dial("tcp", f.DestinationAddr)
 		if err != nil {
 			log.Warnf("Unable to connect to remote TCP address: %s\n", err)
 			localConn.Close()
@@ -83,7 +83,7 @@ func startTCPPortForwarding(sourceAddr, destinationAddr string, forwarder TCPDat
 			continue
 		}
 		go func() {
-			forwarder.Forward(localConn, remoteConn)
+			f.TCPDataForwarder.Forward(localConn, remoteConn)
 			localConn.Close()
 			log.Printf("TCP connection disconnected from %s\n", localConn.RemoteAddr())
 			remoteConn.Close()
@@ -91,8 +91,8 @@ func startTCPPortForwarding(sourceAddr, destinationAddr string, forwarder TCPDat
 	}
 }
 
-func startUDPPortForwarding(sourceAddr, destinationAddr string, forwarder UDPDataForwarder) error {
-	localUDPAddr, err := net.ResolveUDPAddr("udp", sourceAddr)
+func (f *ForwardingConfig) startUDPPortForwarding() error {
+	localUDPAddr, err := net.ResolveUDPAddr("udp", f.SourceAddr)
 	if err != nil {
 		return fmt.Errorf("error resolving local UDP address: %s\n", err)
 	}
@@ -102,9 +102,9 @@ func startUDPPortForwarding(sourceAddr, destinationAddr string, forwarder UDPDat
 	}
 	defer localConn.Close()
 
-	log.Printf("UDP Port forwarding is active. Forwarding from %s to %s\n", sourceAddr, destinationAddr)
+	log.Printf("UDP Port forwarding is active. Forwarding from %s to %s\n", f.SourceAddr, f.DestinationAddr)
 
-	remoteUDPAddr, err := net.ResolveUDPAddr("udp", destinationAddr)
+	remoteUDPAddr, err := net.ResolveUDPAddr("udp", f.DestinationAddr)
 	if err != nil {
 		return fmt.Errorf("error resolving remote UDP address: %s\n", err)
 	}
@@ -114,7 +114,7 @@ func startUDPPortForwarding(sourceAddr, destinationAddr string, forwarder UDPDat
 	}
 	defer remoteConn.Close()
 
-	forwarder.Forward(*localConn, *remoteConn)
+	f.UDPDataForwarder.Forward(*localConn, *remoteConn)
 
 	return nil
 }
