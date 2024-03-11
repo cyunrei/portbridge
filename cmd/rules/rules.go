@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/cyunrei/portbridge/cmd/options"
+	"github.com/cyunrei/portbridge/pkg/forward"
 	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
@@ -38,7 +39,7 @@ func ParseRulesFromFile(filePath string) ([]Rule, error) {
 		return nil, fmt.Errorf("unsupported file format: %s\n", ext)
 	}
 
-	return rules, nil
+	return applyDefaultValues(rules), nil
 }
 
 func ParseRuleFromOptions(opts options.Options) Rule {
@@ -49,4 +50,13 @@ func ParseRuleFromOptions(opts options.Options) Rule {
 		BandwidthLimit:  opts.BandwidthLimit,
 		UDPBufferSize:   opts.UDPBufferSize,
 	}
+}
+
+func applyDefaultValues(rules []Rule) []Rule {
+	for i := range rules {
+		if rules[i].UDPBufferSize == 0 {
+			rules[i].UDPBufferSize = forward.DefaultUDPBufferSize
+		}
+	}
+	return rules
 }
