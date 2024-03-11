@@ -87,11 +87,9 @@ func startForwarding(r rules.Rule) error {
 	fc := forward.NewForwardingConfig().WithSourceAddr(r.SourceAddr).
 		WithDestinationAddr(r.DestinationAddr).WithProtocol(r.Protocol).
 		WithUDPDataForwarder(forward.NewSimpleUDPDataForwarder().SetBufferSize(r.UDPBufferSize))
-	switch {
-	case r.BandwidthLimit == forward.DefaultTCPBandwidthLimit:
+	if r.BandwidthLimit == forward.DefaultTCPBandwidthLimit {
 		fc.WithTCPDataForwarder(forward.NewSimpleTCPDataForwarder())
-		fallthrough
-	case r.BandwidthLimit != forward.DefaultTCPBandwidthLimit:
+	} else {
 		fc.WithTCPDataForwarder(forward.NewTrafficControlTCPDataForwarder().SetBandwidthLimit(r.BandwidthLimit))
 	}
 	return fc.StartPortForwarding()
