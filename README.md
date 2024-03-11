@@ -11,10 +11,10 @@ Portbridge is a user-space port-forwarding tool with cross-platform support.
 
 # Example
 
-Access the Cloudflare DNS (ipv6) via 127.0.0.2:53
+Access the Cloudflare DNS (ipv6) via 127.0.0.2:53 with 100 udp buffer size
 
 ```shell
-portbridge -s 127.0.0.2:53 -d [2606:4700:4700::1111]:53 -p udp
+portbridge -s 127.0.0.2:53 -d [2606:4700:4700::1111]:53 -p udp --udp-buffer-size=100
 ```
 
 Resolve the issue of Terraria not supporting game join via an ipv6 address
