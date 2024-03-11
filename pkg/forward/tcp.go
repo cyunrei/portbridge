@@ -6,9 +6,23 @@ import (
 	"net"
 )
 
-type SimpleTCPDataForwarder struct{}
+type TCPDataForwarder struct {
+	BandwidthLimit uint64
+}
 
-func (f *SimpleTCPDataForwarder) Forward(sourceConn, destinationConn net.Conn) error {
+func NewTCPDataForwarder() *TCPDataForwarder {
+	return &TCPDataForwarder{BandwidthLimit: DefaultBandwidthLimit}
+}
+
+func (f *TCPDataForwarder) Forward(sourceConn, destinationConn net.Conn) error {
+	if f.BandwidthLimit != DefaultBandwidthLimit {
+		return f.ForwardWithTrafficControl(sourceConn, destinationConn)
+	} else {
+		return f.ForwardWithNormal(sourceConn, destinationConn)
+	}
+}
+
+func (f *TCPDataForwarder) ForwardWithNormal(sourceConn, destinationConn net.Conn) error {
 	done := make(chan *ForwardingError, 2)
 
 	go func() {
@@ -31,26 +45,7 @@ func (f *SimpleTCPDataForwarder) Forward(sourceConn, destinationConn net.Conn) e
 	return nil
 }
 
-func NewSimpleTCPDataForwarder() *SimpleTCPDataForwarder {
-	return &SimpleTCPDataForwarder{}
-}
-
-func NewTrafficControlTCPDataForwarder() *TrafficControlTCPDataForwarder {
-	return &TrafficControlTCPDataForwarder{BandwidthLimit: DefaultTCPBandwidthLimit}
-}
-
-const DefaultTCPBandwidthLimit uint64 = 0
-
-type TrafficControlTCPDataForwarder struct {
-	BandwidthLimit uint64
-}
-
-func (f *TrafficControlTCPDataForwarder) SetBandwidthLimit(bandwidthLimit uint64) *TrafficControlTCPDataForwarder {
-	f.BandwidthLimit = bandwidthLimit
-	return f
-}
-
-func (f *TrafficControlTCPDataForwarder) Forward(sourceConn, destinationConn net.Conn) error {
+func (f *TCPDataForwarder) ForwardWithTrafficControl(sourceConn, destinationConn net.Conn) error {
 	done := make(chan *ForwardingError, 2)
 
 	go func() {
@@ -75,4 +70,9 @@ func (f *TrafficControlTCPDataForwarder) Forward(sourceConn, destinationConn net
 	}
 
 	return nil
+}
+
+func (f *TCPDataForwarder) SetBandwidthLimit(bandwidthLimit uint64) *TCPDataForwarder {
+	f.BandwidthLimit = bandwidthLimit
+	return f
 }

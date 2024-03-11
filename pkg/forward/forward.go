@@ -8,11 +8,10 @@ import (
 )
 
 type ForwardingConfig struct {
-	SourceAddr       string
-	DestinationAddr  string
-	Protocol         string
-	TCPDataForwarder TCPDataForwarder
-	UDPDataForwarder UDPDataForwarder
+	SourceAddr      string
+	DestinationAddr string
+	Protocol        string
+	DataForwarder   DataForwarder
 }
 
 func NewForwardingConfig() *ForwardingConfig {
@@ -34,13 +33,8 @@ func (f *ForwardingConfig) WithProtocol(protocol string) *ForwardingConfig {
 	return f
 }
 
-func (f *ForwardingConfig) WithTCPDataForwarder(tcpDataForwarder TCPDataForwarder) *ForwardingConfig {
-	f.TCPDataForwarder = tcpDataForwarder
-	return f
-}
-
-func (f *ForwardingConfig) WithUDPDataForwarder(udpDataForwarder UDPDataForwarder) *ForwardingConfig {
-	f.UDPDataForwarder = udpDataForwarder
+func (f *ForwardingConfig) WithDataForwarder(dataForwarder DataForwarder) *ForwardingConfig {
+	f.DataForwarder = dataForwarder
 	return f
 }
 
@@ -83,7 +77,7 @@ func (f *ForwardingConfig) startTCPPortForwarding() error {
 			continue
 		}
 		go func() {
-			f.TCPDataForwarder.Forward(localConn, remoteConn)
+			f.DataForwarder.Forward(localConn, remoteConn)
 			localConn.Close()
 			log.Printf("TCP connection disconnected from %s\n", localConn.RemoteAddr())
 			remoteConn.Close()
@@ -114,7 +108,7 @@ func (f *ForwardingConfig) startUDPPortForwarding() error {
 	}
 	defer remoteConn.Close()
 
-	f.UDPDataForwarder.Forward(*localConn, *remoteConn)
+	f.DataForwarder.Forward(&*localConn, &*remoteConn)
 
 	return nil
 }

@@ -2,10 +2,8 @@ package forward
 
 import "net"
 
-type TCPDataForwarder interface {
+type DataForwarder interface {
 	Forward(sourceConn, destinationConn net.Conn) error
-}
-
-type UDPDataForwarder interface {
-	Forward(sourceConn, destinationConn net.UDPConn)
+	ForwardWithNormal(sourceConn, destinationConn net.Conn) error
+	ForwardWithTrafficControl(sourceConn, destinationConn net.Conn) error
 }
