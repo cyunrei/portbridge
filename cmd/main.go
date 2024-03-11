@@ -86,7 +86,8 @@ func parseOptionsToRules() []rules.Rule {
 func startForwarding(r rules.Rule) error {
 	fc := forward.NewForwardingConfig().WithSourceAddr(r.SourceAddr).
 		WithDestinationAddr(r.DestinationAddr).WithProtocol(r.Protocol).
-		WithUDPDataForwarder(forward.NewSimpleUDPDataForwarder().SetBufferSize(r.UDPBufferSize))
+		WithUDPDataForwarder(forward.NewSimpleUDPDataForwarder().
+			SetBufferSize(r.UDPBufferSize).SetDeadlineSecond(r.UDPTimeoutSecond))
 	if r.BandwidthLimit == forward.DefaultTCPBandwidthLimit {
 		fc.WithTCPDataForwarder(forward.NewSimpleTCPDataForwarder())
 	} else {

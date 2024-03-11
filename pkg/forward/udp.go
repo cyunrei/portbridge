@@ -7,7 +7,7 @@ import (
 )
 
 const DefaultUDPBufferSize uint64 = 1024
-const DefaultUDPDeadlineSecond time.Duration = 5
+const DefaultUDPDeadlineSecond uint64 = 5
 
 type SimpleUDPDataForwarder struct {
 	BufferSize     uint64
@@ -17,12 +17,17 @@ type SimpleUDPDataForwarder struct {
 func NewSimpleUDPDataForwarder() *SimpleUDPDataForwarder {
 	return &SimpleUDPDataForwarder{
 		BufferSize:     DefaultUDPBufferSize,
-		DeadlineSecond: DefaultUDPDeadlineSecond,
+		DeadlineSecond: time.Duration(DefaultUDPDeadlineSecond),
 	}
 }
 
 func (f *SimpleUDPDataForwarder) SetBufferSize(size uint64) *SimpleUDPDataForwarder {
 	f.BufferSize = size
+	return f
+}
+
+func (f *SimpleUDPDataForwarder) SetDeadlineSecond(second uint64) *SimpleUDPDataForwarder {
+	f.DeadlineSecond = time.Duration(second)
 	return f
 }
 
