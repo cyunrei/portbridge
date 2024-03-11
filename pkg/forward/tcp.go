@@ -33,13 +33,13 @@ func NewTrafficControlTCPDataForwarder() *TrafficControlTCPDataForwarder {
 	return &TrafficControlTCPDataForwarder{BandwidthLimit: DefaultTCPBandwidthLimit}
 }
 
-const DefaultTCPBandwidthLimit int64 = 0
+const DefaultTCPBandwidthLimit uint64 = 0
 
 type TrafficControlTCPDataForwarder struct {
-	BandwidthLimit int64
+	BandwidthLimit uint64
 }
 
-func (f *TrafficControlTCPDataForwarder) SetBandwidthLimit(bandwidthLimit int64) *TrafficControlTCPDataForwarder {
+func (f *TrafficControlTCPDataForwarder) SetBandwidthLimit(bandwidthLimit uint64) *TrafficControlTCPDataForwarder {
 	f.BandwidthLimit = bandwidthLimit
 	return f
 }

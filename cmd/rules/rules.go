@@ -13,7 +13,7 @@ type Rule struct {
 	SourceAddr      string `json:"source_addr" yaml:"source_addr"`
 	DestinationAddr string `json:"destination_addr" yaml:"destination_addr"`
 	Protocol        string `json:"protocol" yaml:"protocol"`
-	BandwidthLimit  int64  `json:"bandwidth_limit" yaml:"bandwidth_limit"`
+	BandwidthLimit  uint64 `json:"bandwidth_limit" yaml:"bandwidth_limit"`
 	UDPBufferSize   uint64 `json:"udp_buffer_size" yaml:"udp_buffer_size"`
 }
 
