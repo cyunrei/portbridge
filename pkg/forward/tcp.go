@@ -2,27 +2,33 @@ package forward
 
 import (
 	"github.com/fujiwara/shapeio"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"net"
 )
 
 type SimpleTCPDataForwarder struct{}
 
-func (f *SimpleTCPDataForwarder) Forward(sourceConn, destinationConn net.Conn) {
+func (f *SimpleTCPDataForwarder) Forward(sourceConn, destinationConn net.Conn) error {
+	done := make(chan *ForwardingError, 2)
+
+	go func() {
+		_, err := io.Copy(destinationConn, sourceConn)
+		done <- NewError(err, sourceConn, destinationConn, true)
+	}()
+
 	go func() {
 		_, err := io.Copy(sourceConn, destinationConn)
-		if err != nil {
-			log.Printf("Connection disconnted from %s\n", sourceConn.RemoteAddr())
+		done <- NewError(err, sourceConn, destinationConn, false)
+	}()
+
+	for i := 0; i < 2; i++ {
+		e := <-done
+		if e != nil && e.Err != nil {
+			return e
 		}
-		sourceConn.Close()
-		destinationConn.Close()
-	}()
-	go func() {
-		io.Copy(destinationConn, sourceConn)
-		sourceConn.Close()
-		destinationConn.Close()
-	}()
+	}
+
+	return nil
 }
 
 func NewSimpleTCPDataForwarder() *SimpleTCPDataForwarder {
@@ -44,22 +50,29 @@ func (f *TrafficControlTCPDataForwarder) SetBandwidthLimit(bandwidthLimit uint64
 	return f
 }
 
-func (f *TrafficControlTCPDataForwarder) Forward(sourceConn, destinationConn net.Conn) {
+func (f *TrafficControlTCPDataForwarder) Forward(sourceConn, destinationConn net.Conn) error {
+	done := make(chan *ForwardingError, 2)
+
 	go func() {
 		destConnReader := shapeio.NewReader(destinationConn)
 		destConnReader.SetRateLimit(float64(1024 * f.BandwidthLimit))
 		_, err := io.Copy(sourceConn, destConnReader)
-		if err != nil {
-			log.Printf("Connection disconnted from %s\n", sourceConn.RemoteAddr())
-		}
-		sourceConn.Close()
-		destinationConn.Close()
+		done <- NewError(err, sourceConn, destinationConn, true)
 	}()
+
 	go func() {
 		sourceConnReader := shapeio.NewReader(sourceConn)
 		sourceConnReader.SetRateLimit(float64(1024 * f.BandwidthLimit))
-		io.Copy(destinationConn, sourceConnReader)
-		sourceConn.Close()
-		destinationConn.Close()
+		_, err := io.Copy(destinationConn, sourceConnReader)
+		done <- NewError(err, sourceConn, destinationConn, false)
 	}()
+
+	for i := 0; i < 2; i++ {
+		e := <-done
+		if e != nil && e.Err != nil {
+			return e
+		}
+	}
+
+	return nil
 }

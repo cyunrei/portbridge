@@ -73,45 +73,48 @@ func startTCPPortForwarding(sourceAddr, destinationAddr string, forwarder TCPDat
 			continue
 		}
 
-		log.Printf("New TCP connection established from %s\n", localConn.RemoteAddr())
+		log.Printf("TCP connection established from %s\n", localConn.RemoteAddr())
 
 		remoteConn, err := net.Dial("tcp", destinationAddr)
 		if err != nil {
-			log.Warnf("Unable to connect to TCP source address: %s\n", err)
+			log.Warnf("Unable to connect to remote TCP address: %s\n", err)
 			localConn.Close()
+			log.Printf("TCP connection disconnected from %s\n", localConn.RemoteAddr())
 			continue
 		}
-
-		go forwarder.Forward(localConn, remoteConn)
-
+		go func() {
+			forwarder.Forward(localConn, remoteConn)
+			localConn.Close()
+			log.Printf("TCP connection disconnected from %s\n", localConn.RemoteAddr())
+			remoteConn.Close()
+		}()
 	}
 }
 
 func startUDPPortForwarding(sourceAddr, destinationAddr string, forwarder UDPDataForwarder) error {
 	localUDPAddr, err := net.ResolveUDPAddr("udp", sourceAddr)
 	if err != nil {
-		return fmt.Errorf("error resolving local address: %s\n", err)
+		return fmt.Errorf("error resolving local UDP address: %s\n", err)
 	}
-	remoteUDPAddr, err := net.ResolveUDPAddr("udp", destinationAddr)
-	if err != nil {
-		return fmt.Errorf("error resolving remote address: %s\n", err)
-	}
-
-	conn, err := net.ListenUDP("udp", localUDPAddr)
+	localConn, err := net.ListenUDP("udp", localUDPAddr)
 	if err != nil {
 		return fmt.Errorf("unable to bind to local UDP address: %s\n", err)
 	}
-	defer conn.Close()
+	defer localConn.Close()
 
 	log.Printf("UDP Port forwarding is active. Forwarding from %s to %s\n", sourceAddr, destinationAddr)
 
+	remoteUDPAddr, err := net.ResolveUDPAddr("udp", destinationAddr)
+	if err != nil {
+		return fmt.Errorf("error resolving remote UDP address: %s\n", err)
+	}
 	remoteConn, err := net.DialUDP("udp", nil, remoteUDPAddr)
 	if err != nil {
-		log.Fatalf("Error establishing remote connection: %s\n", err)
+		return fmt.Errorf("unable to connect to remote UDP address: %s\n", err)
 	}
 	defer remoteConn.Close()
 
-	forwarder.Forward(*conn, *remoteConn)
+	forwarder.Forward(*localConn, *remoteConn)
 
 	return nil
 }
