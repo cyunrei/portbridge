@@ -1,19 +1,23 @@
 package forward
 
 import (
-	log "github.com/sirupsen/logrus"
+	"errors"
 	"net"
+	"time"
 )
 
 const DefaultUDPBufferSize uint64 = 1024
+const DefaultUDPDeadlineSecond time.Duration = 5
 
 type SimpleUDPDataForwarder struct {
-	BufferSize uint64
+	BufferSize     uint64
+	DeadlineSecond time.Duration
 }
 
 func NewSimpleUDPDataForwarder() *SimpleUDPDataForwarder {
 	return &SimpleUDPDataForwarder{
-		BufferSize: DefaultUDPBufferSize,
+		BufferSize:     DefaultUDPBufferSize,
+		DeadlineSecond: DefaultUDPDeadlineSecond,
 	}
 }
 
@@ -22,51 +26,37 @@ func (f *SimpleUDPDataForwarder) SetBufferSize(size uint64) *SimpleUDPDataForwar
 	return f
 }
 
-func (f *SimpleUDPDataForwarder) Forward(conn, remoteConn net.UDPConn) {
-	connBuffer := make([]byte, f.BufferSize)
-
-	type dataWithAddr struct {
-		data []byte
-		addr *net.UDPAddr
-	}
-
-	dataChannel := make(chan dataWithAddr)
-
-	readDataFromConn := func() {
-		for {
-			n, connAddr, err := conn.ReadFromUDP(connBuffer)
-			if err != nil {
-				log.Errorf("Error reading from UDP: %s\n", err)
-				continue
-			}
-			dataChannel <- dataWithAddr{connBuffer[:n], connAddr}
-		}
-	}
-
-	go readDataFromConn()
-
-	writeDataToRemote := func(data []byte, addr *net.UDPAddr) {
-		_, err := remoteConn.Write(data)
-		if err != nil {
-			log.Errorf("Error writing to remote UDP: %s\n", err)
-			return
-		}
-
-		remoteBuffer := make([]byte, f.BufferSize)
-		m, err := remoteConn.Read(remoteBuffer)
-		if err != nil {
-			log.Errorf("Error reading from remote UDP: %s\n", err)
-			return
-		}
-
-		_, err = conn.WriteToUDP(remoteBuffer[:m], addr)
-		if err != nil {
-			log.Errorf("Error writing to UDP: %s\n", err)
-		}
-	}
-
+func (f *SimpleUDPDataForwarder) Forward(sourceConn, destinationConn net.UDPConn) {
+	sourceConnBuffer := make([]byte, f.BufferSize)
 	for {
-		dataWithAddr := <-dataChannel
-		go writeDataToRemote(dataWithAddr.data, dataWithAddr.addr)
+		sourceConn.SetReadDeadline(time.Now().Add(f.DeadlineSecond * time.Second))
+		n, sourceConnAddr, err := sourceConn.ReadFromUDP(sourceConnBuffer)
+		if err != nil {
+			continue
+		}
+
+		data := make([]byte, n)
+		copy(data, sourceConnBuffer[:n])
+
+		go func(data []byte, sourceConnAddr *net.UDPAddr) {
+			_, err := destinationConn.Write(data)
+			if err != nil {
+				return
+			}
+
+			destinationConnBuffer := make([]byte, f.BufferSize)
+			destinationConn.SetReadDeadline(time.Now().Add(f.DeadlineSecond * time.Second))
+			m, _, err := destinationConn.ReadFromUDP(destinationConnBuffer)
+			var netErr net.Error
+			if errors.As(err, &netErr) && netErr.Timeout() {
+				return
+			}
+
+			_, err = sourceConn.WriteToUDP(destinationConnBuffer[:m], sourceConnAddr)
+			if err != nil {
+				return
+			}
+
+		}(data, sourceConnAddr)
 	}
 }
