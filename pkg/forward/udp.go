@@ -32,37 +32,8 @@ func (f *UDPDataForwarder) Forward(sourceConn, destinationConn net.Conn) error {
 func (f *UDPDataForwarder) ForwardWithNormal(sourceConn, destinationConn net.Conn) error {
 	sourceUDPConn, _ := sourceConn.(*net.UDPConn)
 	destinationUDPConn, _ := destinationConn.(*net.UDPConn)
-	sourceConnBuffer := make([]byte, f.BufferSize)
-	for {
-		sourceConn.SetReadDeadline(time.Now().Add(f.DeadlineSecond * time.Second))
-		n, sourceConnAddr, err := sourceUDPConn.ReadFromUDP(sourceConnBuffer)
-		if err != nil {
-			continue
-		}
-
-		data := make([]byte, n)
-		copy(data, sourceConnBuffer[:n])
-
-		go func(data []byte, sourceConnAddr *net.UDPAddr) {
-			_, err := destinationConn.Write(data)
-			if err != nil {
-				return
-			}
-
-			destinationConnBuffer := make([]byte, f.BufferSize)
-			destinationConn.SetReadDeadline(time.Now().Add(f.DeadlineSecond * time.Second))
-			m, _, err := destinationUDPConn.ReadFromUDP(destinationConnBuffer)
-			if err != nil {
-				return
-			}
-
-			_, err = sourceUDPConn.WriteToUDP(destinationConnBuffer[:m], sourceConnAddr)
-			if err != nil {
-				return
-			}
-
-		}(data, sourceConnAddr)
-	}
+	f.forwardData(sourceUDPConn, destinationUDPConn, nil)
+	return nil
 }
 
 func (f *UDPDataForwarder) ForwardWithTrafficControl(sourceConn, destinationConn net.Conn) error {
@@ -70,10 +41,14 @@ func (f *UDPDataForwarder) ForwardWithTrafficControl(sourceConn, destinationConn
 	destinationUDPConn, _ := destinationConn.(*net.UDPConn)
 
 	limiter := rate.NewLimiter(rate.Limit(f.BandwidthLimit*1024/8), int(f.BandwidthLimit*1024/8))
+	f.forwardData(sourceUDPConn, destinationUDPConn, limiter)
+	return nil
+}
 
+func (f *UDPDataForwarder) forwardData(sourceUDPConn, destinationUDPConn *net.UDPConn, limiter *rate.Limiter) {
 	sourceConnBuffer := make([]byte, f.BufferSize)
 	for {
-		sourceConn.SetReadDeadline(time.Now().Add(f.DeadlineSecond * time.Second))
+		sourceUDPConn.SetReadDeadline(time.Now().Add(f.DeadlineSecond * time.Second))
 		n, sourceConnAddr, err := sourceUDPConn.ReadFromUDP(sourceConnBuffer)
 		if err != nil {
 			continue
@@ -83,33 +58,36 @@ func (f *UDPDataForwarder) ForwardWithTrafficControl(sourceConn, destinationConn
 		copy(data, sourceConnBuffer[:n])
 
 		go func(data []byte, sourceConnAddr *net.UDPAddr) {
-			err := limiter.WaitN(context.Background(), n)
-			if err != nil {
-				return
+			if limiter != nil {
+				err := limiter.WaitN(context.Background(), n)
+				if err != nil {
+					return
+				}
 			}
 
-			_, err = destinationConn.Write(data)
+			_, err := destinationUDPConn.Write(data)
 			if err != nil {
 				return
 			}
 
 			destinationConnBuffer := make([]byte, f.BufferSize)
-			destinationConn.SetReadDeadline(time.Now().Add(f.DeadlineSecond * time.Second))
+			destinationUDPConn.SetReadDeadline(time.Now().Add(f.DeadlineSecond * time.Second))
 			m, _, err := destinationUDPConn.ReadFromUDP(destinationConnBuffer)
 			if err != nil {
 				return
 			}
 
-			err = limiter.WaitN(context.Background(), m)
-			if err != nil {
-				return
+			if limiter != nil {
+				err := limiter.WaitN(context.Background(), m)
+				if err != nil {
+					return
+				}
 			}
 
 			_, err = sourceUDPConn.WriteToUDP(destinationConnBuffer[:m], sourceConnAddr)
 			if err != nil {
 				return
 			}
-
 		}(data, sourceConnAddr)
 	}
 }

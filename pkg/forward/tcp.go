@@ -23,42 +23,41 @@ func (f *TCPDataForwarder) Forward(sourceConn, destinationConn net.Conn) error {
 }
 
 func (f *TCPDataForwarder) ForwardWithNormal(sourceConn, destinationConn net.Conn) error {
-	done := make(chan *ForwardingError, 2)
-
-	go func() {
-		_, err := io.Copy(destinationConn, sourceConn)
-		done <- NewError(err, sourceConn, destinationConn, true)
-	}()
-
-	go func() {
-		_, err := io.Copy(sourceConn, destinationConn)
-		done <- NewError(err, sourceConn, destinationConn, false)
-	}()
-
-	for i := 0; i < 2; i++ {
-		e := <-done
-		if e != nil && e.Err != nil {
-			return e
-		}
-	}
-
-	return nil
+	return f.forwardData(sourceConn, destinationConn, 0)
 }
 
 func (f *TCPDataForwarder) ForwardWithTrafficControl(sourceConn, destinationConn net.Conn) error {
+	return f.forwardData(sourceConn, destinationConn, float64(f.BandwidthLimit))
+}
+
+func (f *TCPDataForwarder) forwardData(sourceConn, destinationConn net.Conn, rateLimit float64) error {
 	done := make(chan *ForwardingError, 2)
 
 	go func() {
-		destConnReader := shapeio.NewReader(destinationConn)
-		destConnReader.SetRateLimit(float64(1024 * f.BandwidthLimit))
-		_, err := io.Copy(sourceConn, destConnReader)
+		var reader io.Reader
+		if rateLimit > 0 {
+			destConnReader := shapeio.NewReader(destinationConn)
+			destConnReader.SetRateLimit(1024 * rateLimit)
+			reader = destConnReader
+		} else {
+			reader = destinationConn
+		}
+
+		_, err := io.Copy(sourceConn, reader)
 		done <- NewError(err, sourceConn, destinationConn, true)
 	}()
 
 	go func() {
-		sourceConnReader := shapeio.NewReader(sourceConn)
-		sourceConnReader.SetRateLimit(float64(1024 * f.BandwidthLimit))
-		_, err := io.Copy(destinationConn, sourceConnReader)
+		var reader io.Reader
+		if rateLimit > 0 {
+			sourceConnReader := shapeio.NewReader(sourceConn)
+			sourceConnReader.SetRateLimit(1024 * rateLimit)
+			reader = sourceConnReader
+		} else {
+			reader = sourceConn
+		}
+
+		_, err := io.Copy(destinationConn, reader)
 		done <- NewError(err, sourceConn, destinationConn, false)
 	}()
 
