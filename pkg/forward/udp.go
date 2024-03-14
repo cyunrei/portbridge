@@ -2,6 +2,7 @@ package forward
 
 import (
 	"context"
+	"github.com/panjf2000/ants/v2"
 	"golang.org/x/time/rate"
 	"net"
 	"time"
@@ -46,7 +47,11 @@ func (f *UDPDataForwarder) ForwardWithTrafficControl(sourceConn, destinationConn
 }
 
 func (f *UDPDataForwarder) forwardData(sourceUDPConn, destinationUDPConn *net.UDPConn, limiter *rate.Limiter) {
+	pool, _ := ants.NewPool(1000)
+	defer pool.Release()
+
 	sourceConnBuffer := make([]byte, f.BufferSize)
+
 	for {
 		sourceUDPConn.SetReadDeadline(time.Now().Add(f.Deadline * time.Second))
 		n, sourceConnAddr, err := sourceUDPConn.ReadFromUDP(sourceConnBuffer)
@@ -54,10 +59,8 @@ func (f *UDPDataForwarder) forwardData(sourceUDPConn, destinationUDPConn *net.UD
 			continue
 		}
 
-		data := make([]byte, n)
-		copy(data, sourceConnBuffer[:n])
-
-		go func(data []byte, sourceConnAddr *net.UDPAddr) {
+		pool.Submit(func() {
+			sourceConnBufferCopy := sourceConnBuffer
 			if limiter != nil {
 				err := limiter.WaitN(context.Background(), n)
 				if err != nil {
@@ -65,11 +68,10 @@ func (f *UDPDataForwarder) forwardData(sourceUDPConn, destinationUDPConn *net.UD
 				}
 			}
 
-			_, err := destinationUDPConn.Write(data)
+			_, err := destinationUDPConn.Write(sourceConnBufferCopy)
 			if err != nil {
 				return
 			}
-
 			destinationConnBuffer := make([]byte, f.BufferSize)
 			destinationUDPConn.SetReadDeadline(time.Now().Add(f.Deadline * time.Second))
 			m, _, err := destinationUDPConn.ReadFromUDP(destinationConnBuffer)
@@ -88,7 +90,7 @@ func (f *UDPDataForwarder) forwardData(sourceUDPConn, destinationUDPConn *net.UD
 			if err != nil {
 				return
 			}
-		}(data, sourceConnAddr)
+		})
 	}
 }
 
