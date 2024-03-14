@@ -8,6 +8,7 @@ type Options struct {
 	UDPBufferSize   uint64 `long:"udp-buffer-size" description:"UDP data forwarding buffer size in bytes" default:"1024"`
 	UDPTimeout      uint64 `long:"udp-timeout" description:"UDP data forwarding time out in second" default:"5"`
 	RulesFile       string `short:"f" long:"rules-file" description:"Batch port forwarding rules file path"`
+	GenRulesFile    bool   `short:"g" long:"gen-rules-file" description:"Generate an example rules file for reference and modification"`
 	Help            bool   `short:"h" long:"help" description:"Print help message"`
 	Version         bool   `short:"v" long:"version" description:"Print the version number"`
 }

@@ -19,6 +19,15 @@ type Rule struct {
 	UDPTimeout      uint64 `json:"udp_timeout" yaml:"udp_timeout"`
 }
 
+func NewRules() []Rule {
+	return []Rule{
+		{
+			UDPBufferSize: forward.DefaultUDPBufferSize,
+			UDPTimeout:    forward.DefaultUDPDeadline,
+		},
+	}
+}
+
 func ParseRulesFromFile(filePath string) ([]Rule, error) {
 	file, err := os.ReadFile(filePath)
 	if err != nil {
@@ -52,6 +61,30 @@ func ParseRuleFromOptions(opts options.Options) Rule {
 		UDPBufferSize:   opts.UDPBufferSize,
 		UDPTimeout:      opts.UDPTimeout,
 	}
+}
+
+func GenerateEmptyRulesFile(filePath string, format string) error {
+	emptyRules := NewRules()
+
+	var data []byte
+	var err error
+	switch format {
+	case "yaml", "yml":
+		data, err = yaml.Marshal(emptyRules)
+	case "json":
+		data, err = json.MarshalIndent(emptyRules, "", "    ")
+	default:
+		return fmt.Errorf("unsupported format: %s", format)
+	}
+	if err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(fmt.Sprintf("%s.%s", filePath, format), data, 0644); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func applyDefaultValues(rules []Rule) []Rule {

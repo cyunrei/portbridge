@@ -59,6 +59,9 @@ func parseOptionsToRules() []rules.Rule {
 	_, err := parser.ParseArgs(os.Args)
 
 	switch {
+	case opts.GenRulesFile:
+		generateEmptyRulesFile()
+		os.Exit(0)
 	case opts.RulesFile != "":
 		rs, parseRulesErr := rules.ParseRulesFromFile(opts.RulesFile)
 		if parseRulesErr != nil {
@@ -94,4 +97,15 @@ func startForwarding(r rules.Rule) error {
 			SetDeadlineSecond(r.UDPTimeout).SetBufferSize(r.UDPBufferSize))
 	}
 	return fc.StartPortForwarding()
+}
+
+func generateEmptyRulesFile() {
+	err := rules.GenerateEmptyRulesFile("example", "yaml")
+	if err != nil {
+		log.Fatalf("Error: %s", err)
+	}
+	err = rules.GenerateEmptyRulesFile("example", "json")
+	if err != nil {
+		log.Fatalf("Error: %s", err)
+	}
 }
