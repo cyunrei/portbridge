@@ -1,6 +1,6 @@
-# Portbridge
+# Portbridge ![GitHub Release](https://img.shields.io/github/v/release/cyunrei/portbridge) [![Go Report Card](https://goreportcard.com/badge/github.com/cyunrei/portbridge)](https://goreportcard.com/report/github.com/cyunrei/portbridge) ![GitHub License](https://img.shields.io/github/license/cyunrei/portbridge)
 
-Portbridge is a user-space port-forwarding tool with cross-platform support.
+Portbridge is a port forwarding tool with cross-platform support.
 
 # Features
 
@@ -46,7 +46,7 @@ portbridge -s 127.0.0.1:7777 -d [::1]:7777 -p tcp
 portbridge -s :8081 -d 127.0.0.1:8080 -p tcp -b 1024
 ```
 
-- Execute the above examples in `rules_example.json`(or `rules_example.yaml`)
+- Execute the above examples in `rules_example.json`(or `rules_example.yaml`, which in the release files)
 
 ```shell
 portbridge -f rules_example.json
