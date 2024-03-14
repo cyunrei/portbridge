@@ -10,14 +10,14 @@ import (
 type UDPDataForwarder struct {
 	BufferSize     uint64
 	BandwidthLimit uint64
-	DeadlineSecond time.Duration
+	Deadline       time.Duration
 }
 
 func NewUDPDataForwarder() *UDPDataForwarder {
 	return &UDPDataForwarder{
 		BandwidthLimit: DefaultBandwidthLimit,
 		BufferSize:     DefaultUDPBufferSize,
-		DeadlineSecond: time.Duration(DefaultUDPDeadlineSecond),
+		Deadline:       time.Duration(DefaultUDPDeadline),
 	}
 }
 
@@ -48,7 +48,7 @@ func (f *UDPDataForwarder) ForwardWithTrafficControl(sourceConn, destinationConn
 func (f *UDPDataForwarder) forwardData(sourceUDPConn, destinationUDPConn *net.UDPConn, limiter *rate.Limiter) {
 	sourceConnBuffer := make([]byte, f.BufferSize)
 	for {
-		sourceUDPConn.SetReadDeadline(time.Now().Add(f.DeadlineSecond * time.Second))
+		sourceUDPConn.SetReadDeadline(time.Now().Add(f.Deadline * time.Second))
 		n, sourceConnAddr, err := sourceUDPConn.ReadFromUDP(sourceConnBuffer)
 		if err != nil {
 			continue
@@ -71,7 +71,7 @@ func (f *UDPDataForwarder) forwardData(sourceUDPConn, destinationUDPConn *net.UD
 			}
 
 			destinationConnBuffer := make([]byte, f.BufferSize)
-			destinationUDPConn.SetReadDeadline(time.Now().Add(f.DeadlineSecond * time.Second))
+			destinationUDPConn.SetReadDeadline(time.Now().Add(f.Deadline * time.Second))
 			m, _, err := destinationUDPConn.ReadFromUDP(destinationConnBuffer)
 			if err != nil {
 				return
@@ -103,6 +103,6 @@ func (f *UDPDataForwarder) SetBufferSize(size uint64) *UDPDataForwarder {
 }
 
 func (f *UDPDataForwarder) SetDeadlineSecond(second uint64) *UDPDataForwarder {
-	f.DeadlineSecond = time.Duration(second)
+	f.Deadline = time.Duration(second)
 	return f
 }

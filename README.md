@@ -16,12 +16,12 @@ Portbridge Options:
 ```
   -s, --source=             Source address and port to bind locally
   -d, --destination=        Destination address and port to connect remotely
-  -p, --protocol=           Specify the source protocol type
+  -p, --protocol=           Specify the source protocol type (e.g., tcp, udp)
   -b, --bandwidth-limit=    Bandwidth limit in KiB (default: 0)
       --udp-buffer-size=    UDP data forwarding buffer size in bytes (default: 1024)
-      --udp-timeout-second= UDP data forwarding time out in second (default: 5)
-  -f, --rule-file=          Batch port forwarding file path
-  -h, --help                Show help message
+      --udp-timeout=        UDP data forwarding time out in second (default: 5)
+  -f, --rules-file=         Batch port forwarding rules file path
+  -h, --help                Print help message
   -v, --version             Print the version number
 ```
 

@@ -59,13 +59,13 @@ func parseOptionsToRules() []rules.Rule {
 	_, err := parser.ParseArgs(os.Args)
 
 	switch {
-	case opts.RuleFile != "":
-		rs, parseRulesErr := rules.ParseRulesFromFile(opts.RuleFile)
+	case opts.RulesFile != "":
+		rs, parseRulesErr := rules.ParseRulesFromFile(opts.RulesFile)
 		if parseRulesErr != nil {
 			log.Fatalf("Parse rules from file: %s", parseRulesErr)
 		}
 		if len(rs) == 0 {
-			log.Fatalf("No rules found in the file '%s'. Please provide at least one rule", opts.RuleFile)
+			log.Fatalf("No rules found in the file '%s'. Please provide at least one rule", opts.RulesFile)
 		}
 		return rs
 	case opts.Help:
@@ -77,7 +77,7 @@ func parseOptionsToRules() []rules.Rule {
 	case err != nil:
 		parser.WriteHelp(os.Stdout)
 		log.Fatalf("Error: %s", err)
-	case opts.RuleFile == "":
+	case opts.RulesFile == "":
 		rs = append(rs, rules.ParseRuleFromOptions(opts))
 	}
 	return rs
@@ -91,7 +91,7 @@ func startForwarding(r rules.Rule) error {
 		fc.WithDataForwarder(forward.NewTCPDataForwarder().SetBandwidthLimit(r.BandwidthLimit))
 	case "udp":
 		fc.WithDataForwarder(forward.NewUDPDataForwarder().SetBandwidthLimit(r.BandwidthLimit).
-			SetDeadlineSecond(r.UDPTimeoutSecond).SetBufferSize(r.UDPBufferSize))
+			SetDeadlineSecond(r.UDPTimeout).SetBufferSize(r.UDPBufferSize))
 	}
 	return fc.StartPortForwarding()
 }
