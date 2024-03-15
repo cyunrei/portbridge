@@ -1,4 +1,4 @@
-package forward
+package forwarder
 
 import "net"
 

@@ -1,7 +1,7 @@
 package rules
 
 import (
-	"github.com/cyunrei/portbridge/pkg/forward"
+	"github.com/cyunrei/portbridge/pkg/forwarder"
 	"reflect"
 	"testing"
 )
@@ -9,11 +9,11 @@ import (
 func TestParseRulesFile(t *testing.T) {
 	expectedRules := []Rule{
 		{SourceAddr: "127.0.0.2:53", DestinationAddr: "[2606:4700:4700::1111]:53", Protocol: "udp",
-			UDPBufferSize: 100, UDPTimeout: forward.DefaultUDPDeadline},
+			UDPBufferSize: 100, UDPTimeout: forwarder.DefaultUDPDeadlineTime},
 		{SourceAddr: "127.0.0.1:7777", DestinationAddr: "[::1]:7777", Protocol: "tcp",
-			UDPBufferSize: forward.DefaultUDPBufferSize, UDPTimeout: forward.DefaultUDPDeadline},
+			UDPBufferSize: forwarder.DefaultUDPBufferSize, UDPTimeout: forwarder.DefaultUDPDeadlineTime},
 		{SourceAddr: ":8081", DestinationAddr: "127.0.0.1:8080", Protocol: "tcp", BandwidthLimit: 1024,
-			UDPBufferSize: forward.DefaultUDPBufferSize, UDPTimeout: forward.DefaultUDPDeadline},
+			UDPBufferSize: forwarder.DefaultUDPBufferSize, UDPTimeout: forwarder.DefaultUDPDeadlineTime},
 	}
 	testCases := []struct {
 		filePath string
@@ -31,7 +31,7 @@ func TestParseRulesFile(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.filePath, func(t *testing.T) {
-			rules, err := ParseRulesFromFile(testCase.filePath)
+			rules, err := ParseFromFile(testCase.filePath)
 			if err != nil {
 				t.Fatalf("Error parsing file %s: %v", testCase.filePath, err)
 			}

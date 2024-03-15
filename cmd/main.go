@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/cyunrei/portbridge/cmd/options"
 	"github.com/cyunrei/portbridge/cmd/rules"
-	"github.com/cyunrei/portbridge/pkg/forward"
+	"github.com/cyunrei/portbridge/pkg/forwarder"
 	"github.com/jessevdk/go-flags"
 	log "github.com/sirupsen/logrus"
 	"os"
@@ -23,7 +23,7 @@ func main() {
 		TimestampFormat: time.StampMilli,
 	})
 
-	rs := parseOptionsToRules()
+	rs := parseOptions()
 	done := make(chan struct{})
 	signals := make(chan os.Signal, 1)
 	errorOccurred := make(chan struct{})
@@ -47,12 +47,12 @@ func main() {
 	case <-errorOccurred:
 		os.Exit(1)
 	case sig := <-signals:
-		log.Infof("Received signal %v. Shutting down...\n", sig)
+		log.Infof("Received signal %v. Shutting down...", sig)
 		close(done)
 	}
 }
 
-func parseOptionsToRules() []rules.Rule {
+func parseOptions() []rules.Rule {
 	var opts options.Options
 	var rs []rules.Rule
 	parser := flags.NewParser(&opts, flags.None)
@@ -63,7 +63,7 @@ func parseOptionsToRules() []rules.Rule {
 		generateEmptyRulesFile()
 		os.Exit(0)
 	case opts.RulesFile != "":
-		rs, parseRulesErr := rules.ParseRulesFromFile(opts.RulesFile)
+		rs, parseRulesErr := rules.ParseFromFile(opts.RulesFile)
 		if parseRulesErr != nil {
 			log.Fatalf("Parse rules from file: %s", parseRulesErr)
 		}
@@ -81,30 +81,30 @@ func parseOptionsToRules() []rules.Rule {
 		parser.WriteHelp(os.Stdout)
 		log.Fatalf("Error: %s", err)
 	case opts.RulesFile == "":
-		rs = append(rs, rules.ParseRuleFromOptions(opts))
+		rs = append(rs, rules.ParseFromOptions(opts))
 	}
 	return rs
 }
 
 func startForwarding(r rules.Rule) error {
-	fc := forward.NewForwardingConfig().WithSourceAddr(r.SourceAddr).
+	fc := forwarder.NewForwarder().WithSourceAddr(r.SourceAddr).
 		WithDestinationAddr(r.DestinationAddr).WithProtocol(r.Protocol)
 	switch r.Protocol {
 	case "tcp":
-		fc.WithDataForwarder(forward.NewTCPDataForwarder().SetBandwidthLimit(r.BandwidthLimit))
+		fc.WithDataForwarder(forwarder.NewTCPDataForwarder().SetBandwidthLimit(r.BandwidthLimit))
 	case "udp":
-		fc.WithDataForwarder(forward.NewUDPDataForwarder().SetBandwidthLimit(r.BandwidthLimit).
-			SetDeadlineSecond(r.UDPTimeout).SetBufferSize(r.UDPBufferSize))
+		fc.WithDataForwarder(forwarder.NewUDPDataForwarder().SetBandwidthLimit(r.BandwidthLimit).
+			SetDeadlineTime(r.UDPTimeout).SetBufferSize(r.UDPBufferSize))
 	}
-	return fc.StartPortForwarding()
+	return fc.Start()
 }
 
 func generateEmptyRulesFile() {
-	err := rules.GenerateEmptyRulesFile("example", "yaml")
+	err := rules.GenerateEmptyFile("example.yaml")
 	if err != nil {
 		log.Fatalf("Error: %s", err)
 	}
-	err = rules.GenerateEmptyRulesFile("example", "json")
+	err = rules.GenerateEmptyFile("example.json")
 	if err != nil {
 		log.Fatalf("Error: %s", err)
 	}

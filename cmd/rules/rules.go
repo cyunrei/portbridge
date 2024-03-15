@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/cyunrei/portbridge/cmd/options"
-	"github.com/cyunrei/portbridge/pkg/forward"
+	"github.com/cyunrei/portbridge/pkg/forwarder"
 	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type Rule struct {
@@ -22,13 +23,13 @@ type Rule struct {
 func NewRules() []Rule {
 	return []Rule{
 		{
-			UDPBufferSize: forward.DefaultUDPBufferSize,
-			UDPTimeout:    forward.DefaultUDPDeadline,
+			UDPBufferSize: forwarder.DefaultUDPBufferSize,
+			UDPTimeout:    forwarder.DefaultUDPDeadlineTime,
 		},
 	}
 }
 
-func ParseRulesFromFile(filePath string) ([]Rule, error) {
+func ParseFromFile(filePath string) ([]Rule, error) {
 	file, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err
@@ -46,13 +47,13 @@ func ParseRulesFromFile(filePath string) ([]Rule, error) {
 			return nil, err
 		}
 	default:
-		return nil, fmt.Errorf("unsupported file format: %s\n", ext)
+		return nil, fmt.Errorf("unsupported file format: %s", ext)
 	}
 
-	return applyDefaultValues(rules), nil
+	return applyDefault(rules), nil
 }
 
-func ParseRuleFromOptions(opts options.Options) Rule {
+func ParseFromOptions(opts options.Options) Rule {
 	return Rule{
 		SourceAddr:      opts.SourceAddr,
 		DestinationAddr: opts.DestinationAddr,
@@ -63,7 +64,9 @@ func ParseRuleFromOptions(opts options.Options) Rule {
 	}
 }
 
-func GenerateEmptyRulesFile(filePath string, format string) error {
+func GenerateEmptyFile(filePath string) error {
+	format := filepath.Ext(filePath)
+	format = strings.TrimPrefix(format, ".")
 	emptyRules := NewRules()
 
 	var data []byte
@@ -80,20 +83,20 @@ func GenerateEmptyRulesFile(filePath string, format string) error {
 		return err
 	}
 
-	if err := os.WriteFile(fmt.Sprintf("%s.%s", filePath, format), data, 0644); err != nil {
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func applyDefaultValues(rules []Rule) []Rule {
+func applyDefault(rules []Rule) []Rule {
 	for i := range rules {
 		if rules[i].UDPBufferSize == 0 {
-			rules[i].UDPBufferSize = forward.DefaultUDPBufferSize
+			rules[i].UDPBufferSize = forwarder.DefaultUDPBufferSize
 		}
 		if rules[i].UDPTimeout == 0 {
-			rules[i].UDPTimeout = forward.DefaultUDPDeadline
+			rules[i].UDPTimeout = forwarder.DefaultUDPDeadlineTime
 		}
 	}
 	return rules
