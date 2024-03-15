@@ -52,6 +52,7 @@ func (f *UDPDataForwarder) forwardData(srcConn, dstConn *net.UDPConn, limiter *r
 	defer pool.Release()
 
 	srcConnBuf := make([]byte, f.BufferSize)
+	dstConnBuf := make([]byte, f.BufferSize)
 
 	for {
 		srcConn.SetReadDeadline(time.Now().Add(f.DeadlineTime * time.Second))
@@ -61,7 +62,6 @@ func (f *UDPDataForwarder) forwardData(srcConn, dstConn *net.UDPConn, limiter *r
 		}
 
 		pool.Submit(func() {
-			srcConnBufCopy := srcConnBuf
 			if limiter != nil {
 				err := limiter.WaitN(context.Background(), n)
 				if err != nil {
@@ -69,11 +69,11 @@ func (f *UDPDataForwarder) forwardData(srcConn, dstConn *net.UDPConn, limiter *r
 				}
 			}
 
-			_, err := dstConn.Write(srcConnBufCopy)
+			_, err := dstConn.Write(srcConnBuf)
 			if err != nil {
 				return
 			}
-			dstConnBuf := make([]byte, f.BufferSize)
+
 			dstConn.SetReadDeadline(time.Now().Add(f.DeadlineTime * time.Second))
 			m, _, err := dstConn.ReadFromUDP(dstConnBuf)
 			if err != nil {
