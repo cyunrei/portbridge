@@ -8,57 +8,57 @@ import (
 )
 
 type Forwarder struct {
-	SourceAddr      string
-	DestinationAddr string
-	Protocol        string
-	DataForwarder   DataForwarder
+	srcAddr  string
+	dstAddr  string
+	protocol string
+	df       DataForwarder
 }
 
 func NewForwarder() *Forwarder {
 	return &Forwarder{}
 }
 
-func (f *Forwarder) WithSourceAddr(sourceAddr string) *Forwarder {
-	f.SourceAddr = sourceAddr
+func (f *Forwarder) WithSourceAddr(srcAddr string) *Forwarder {
+	f.srcAddr = srcAddr
 	return f
 }
 
-func (f *Forwarder) WithDestinationAddr(destinationAddr string) *Forwarder {
-	f.DestinationAddr = destinationAddr
+func (f *Forwarder) WithDestinationAddr(dstAddr string) *Forwarder {
+	f.dstAddr = dstAddr
 	return f
 }
 
 func (f *Forwarder) WithProtocol(protocol string) *Forwarder {
-	f.Protocol = protocol
+	f.protocol = protocol
 	return f
 }
 
-func (f *Forwarder) WithDataForwarder(dataForwarder DataForwarder) *Forwarder {
-	f.DataForwarder = dataForwarder
+func (f *Forwarder) WithDataForwarder(df DataForwarder) *Forwarder {
+	f.df = df
 	return f
 }
 
 func (f *Forwarder) Start() error {
 	var err error
-	switch f.Protocol {
+	switch f.protocol {
 	case "tcp":
 		err = f.startTCP()
 	case "udp":
 		err = f.startUDP()
 	default:
-		return errors.New("unsupported protocol: " + f.Protocol)
+		return errors.New("unsupported protocol: " + f.protocol)
 	}
 	return err
 }
 
 func (f *Forwarder) startTCP() error {
-	localListener, err := net.Listen("tcp", f.SourceAddr)
+	localListener, err := net.Listen("tcp", f.srcAddr)
 	if err != nil {
 		return fmt.Errorf("unable to bind to local TCP address: %s", err)
 	}
 	defer localListener.Close()
 
-	log.Printf("TCP Port forwarding is active. Forwarding from %s to %s", f.SourceAddr, f.DestinationAddr)
+	log.Printf("TCP Port forwarding is active. Forwarding from %s to %s", f.srcAddr, f.dstAddr)
 
 	for {
 		localConn, err := localListener.Accept()
@@ -69,7 +69,7 @@ func (f *Forwarder) startTCP() error {
 
 		log.Printf("TCP connection established from %s", localConn.RemoteAddr())
 
-		remoteConn, err := net.Dial("tcp", f.DestinationAddr)
+		remoteConn, err := net.Dial("tcp", f.dstAddr)
 		if err != nil {
 			log.Warnf("Unable to connect to remote TCP address: %s", err)
 			localConn.Close()
@@ -77,7 +77,8 @@ func (f *Forwarder) startTCP() error {
 			continue
 		}
 		go func() {
-			f.DataForwarder.Forward(localConn, remoteConn)
+			df := f.df.(*TCPDataForwarder).WithSrc(localConn).WithDst(remoteConn)
+			df.Start()
 			localConn.Close()
 			log.Printf("TCP connection disconnected from %s", localConn.RemoteAddr())
 			remoteConn.Close()
@@ -86,7 +87,7 @@ func (f *Forwarder) startTCP() error {
 }
 
 func (f *Forwarder) startUDP() error {
-	localUDPAddr, err := net.ResolveUDPAddr("udp", f.SourceAddr)
+	localUDPAddr, err := net.ResolveUDPAddr("udp", f.srcAddr)
 	if err != nil {
 		return fmt.Errorf("error resolving local UDP address: %s", err)
 	}
@@ -96,9 +97,9 @@ func (f *Forwarder) startUDP() error {
 	}
 	defer localConn.Close()
 
-	log.Printf("UDP Port forwarding is active. Forwarding from %s to %s", f.SourceAddr, f.DestinationAddr)
+	log.Printf("UDP Port forwarding is active. Forwarding from %s to %s", f.srcAddr, f.dstAddr)
 
-	remoteUDPAddr, err := net.ResolveUDPAddr("udp", f.DestinationAddr)
+	remoteUDPAddr, err := net.ResolveUDPAddr("udp", f.dstAddr)
 	if err != nil {
 		return fmt.Errorf("error resolving remote UDP address: %s", err)
 	}
@@ -108,7 +109,8 @@ func (f *Forwarder) startUDP() error {
 	}
 	defer remoteConn.Close()
 
-	f.DataForwarder.Forward(&*localConn, &*remoteConn)
+	df := f.df.(*UDPDataForwarder).WithSrc(*localConn).WithDst(*remoteConn)
+	df.Start()
 
 	return nil
 }

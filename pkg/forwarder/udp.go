@@ -15,67 +15,53 @@ const (
 )
 
 type UDPDataForwarder struct {
-	BufferSize     uint64
-	BandwidthLimit uint64
-	DeadlineTime   time.Duration
+	src      net.UDPConn
+	dst      net.UDPConn
+	bufSize  uint64
+	bwLimit  uint64
+	deadline time.Duration
 }
 
 func NewUDPDataForwarder() *UDPDataForwarder {
 	return &UDPDataForwarder{
-		BandwidthLimit: DefaultBandwidthLimit,
-		BufferSize:     DefaultUDPBufferSize,
-		DeadlineTime:   time.Duration(DefaultUDPDeadlineTime),
+		bwLimit:  DefaultBandwidthLimit,
+		bufSize:  DefaultUDPBufferSize,
+		deadline: time.Duration(DefaultUDPDeadlineTime),
 	}
 }
 
-func (f *UDPDataForwarder) Forward(srcConn, dstConn net.Conn) error {
-	if f.BandwidthLimit != DefaultBandwidthLimit {
-		return f.ForwardWithTrafficControl(srcConn, dstConn)
-	} else {
-		return f.ForwardWithNormal(srcConn, dstConn)
+func (f *UDPDataForwarder) Start() error {
+	var limiter *rate.Limiter
+	if f.bwLimit != DefaultBandwidthLimit {
+		limiter = rate.NewLimiter(rate.Limit(f.bwLimit*1024/8), int(f.bwLimit*1024/8))
 	}
-}
-
-func (f *UDPDataForwarder) ForwardWithNormal(srcConn, dstConn net.Conn) error {
-	f.forwardData(srcConn.(*net.UDPConn), dstConn.(*net.UDPConn), nil)
-	return nil
-}
-
-func (f *UDPDataForwarder) ForwardWithTrafficControl(srcConn, dstConn net.Conn) error {
-	limiter := rate.NewLimiter(rate.Limit(f.BandwidthLimit*1024/8), int(f.BandwidthLimit*1024/8))
-	f.forwardData(srcConn.(*net.UDPConn), dstConn.(*net.UDPConn), limiter)
-	return nil
-}
-
-func (f *UDPDataForwarder) forwardData(srcConn, dstConn *net.UDPConn, limiter *rate.Limiter) {
 	pool, _ := ants.NewPool(DefaultGoroutinePoolSize)
 	defer pool.Release()
 
-	srcConnBuf := make([]byte, f.BufferSize)
-	dstConnBuf := make([]byte, f.BufferSize)
+	srcConnBuf := make([]byte, f.bufSize)
+	dstConnBuf := make([]byte, f.bufSize)
 
 	for {
-		srcConn.SetReadDeadline(time.Now().Add(f.DeadlineTime * time.Second))
-		n, srcAddr, err := srcConn.ReadFromUDP(srcConnBuf)
+		f.src.SetReadDeadline(time.Now().Add(f.deadline * time.Second))
+		n, srcAddr, err := f.src.ReadFromUDP(srcConnBuf)
 		if err != nil {
 			continue
 		}
+		if limiter != nil {
+			err := limiter.WaitN(context.Background(), n)
+			if err != nil {
+				continue
+			}
+		}
 
 		pool.Submit(func() {
-			if limiter != nil {
-				err := limiter.WaitN(context.Background(), n)
-				if err != nil {
-					return
-				}
-			}
-
-			_, err := dstConn.Write(srcConnBuf)
+			_, err := f.dst.Write(srcConnBuf)
 			if err != nil {
 				return
 			}
 
-			dstConn.SetReadDeadline(time.Now().Add(f.DeadlineTime * time.Second))
-			m, _, err := dstConn.ReadFromUDP(dstConnBuf)
+			f.dst.SetReadDeadline(time.Now().Add(f.deadline * time.Second))
+			m, _, err := f.dst.ReadFromUDP(dstConnBuf)
 			if err != nil {
 				return
 			}
@@ -87,7 +73,7 @@ func (f *UDPDataForwarder) forwardData(srcConn, dstConn *net.UDPConn, limiter *r
 				}
 			}
 
-			_, err = srcConn.WriteToUDP(dstConnBuf[:m], srcAddr)
+			_, err = f.src.WriteToUDP(dstConnBuf[:m], srcAddr)
 			if err != nil {
 				return
 			}
@@ -95,17 +81,27 @@ func (f *UDPDataForwarder) forwardData(srcConn, dstConn *net.UDPConn, limiter *r
 	}
 }
 
-func (f *UDPDataForwarder) SetBandwidthLimit(limit uint64) *UDPDataForwarder {
-	f.BandwidthLimit = limit
+func (f *UDPDataForwarder) WithSrc(src net.UDPConn) *UDPDataForwarder {
+	f.src = src
 	return f
 }
 
-func (f *UDPDataForwarder) SetBufferSize(size uint64) *UDPDataForwarder {
-	f.BufferSize = size
+func (f *UDPDataForwarder) WithDst(dst net.UDPConn) *UDPDataForwarder {
+	f.dst = dst
 	return f
 }
 
-func (f *UDPDataForwarder) SetDeadlineTime(second uint64) *UDPDataForwarder {
-	f.DeadlineTime = time.Duration(second)
+func (f *UDPDataForwarder) WithBandwidthLimit(bandwidth uint64) *UDPDataForwarder {
+	f.bwLimit = bandwidth
+	return f
+}
+
+func (f *UDPDataForwarder) WithBufferSize(size uint64) *UDPDataForwarder {
+	f.bufSize = size
+	return f
+}
+
+func (f *UDPDataForwarder) WithDeadlineTime(second uint64) *UDPDataForwarder {
+	f.deadline = time.Duration(second)
 	return f
 }

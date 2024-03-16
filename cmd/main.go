@@ -32,7 +32,7 @@ func main() {
 	for _, r := range rs {
 		r := r
 		go func() {
-			err := startForwarding(r)
+			err := startForwarder(r)
 			if err != nil {
 				log.Errorf("Error: %s", err)
 				atomic.AddInt64(&errorCount, 1)
@@ -86,17 +86,19 @@ func parseOptions() []rules.Rule {
 	return rs
 }
 
-func startForwarding(r rules.Rule) error {
-	fc := forwarder.NewForwarder().WithSourceAddr(r.SourceAddr).
+func startForwarder(r rules.Rule) error {
+	f := forwarder.NewForwarder().WithSourceAddr(r.SourceAddr).
 		WithDestinationAddr(r.DestinationAddr).WithProtocol(r.Protocol)
 	switch r.Protocol {
 	case "tcp":
-		fc.WithDataForwarder(forwarder.NewTCPDataForwarder().SetBandwidthLimit(r.BandwidthLimit))
+		df := forwarder.NewTCPDataForwarder().WithBandwidthLimit(r.BandwidthLimit)
+		f.WithDataForwarder(df)
 	case "udp":
-		fc.WithDataForwarder(forwarder.NewUDPDataForwarder().SetBandwidthLimit(r.BandwidthLimit).
-			SetDeadlineTime(r.UDPTimeout).SetBufferSize(r.UDPBufferSize))
+		df := forwarder.NewUDPDataForwarder().WithBandwidthLimit(r.BandwidthLimit).
+			WithDeadlineTime(r.UDPTimeout).WithBufferSize(r.UDPBufferSize)
+		f.WithDataForwarder(df)
 	}
-	return fc.Start()
+	return f.Start()
 }
 
 func generateEmptyRulesFile() {
