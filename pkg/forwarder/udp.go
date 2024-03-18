@@ -2,6 +2,7 @@ package forwarder
 
 import (
 	"context"
+	"errors"
 	"github.com/panjf2000/ants/v2"
 	"golang.org/x/time/rate"
 	"net"
@@ -31,9 +32,13 @@ func NewUDPDataForwarder() *UDPDataForwarder {
 }
 
 func (f *UDPDataForwarder) Start() error {
+	return f.forward()
+}
+
+func (f *UDPDataForwarder) forward() error {
 	var limiter *rate.Limiter
 	if f.bwLimit != DefaultBandwidthLimit {
-		limiter = rate.NewLimiter(rate.Limit(f.bwLimit*1024/8), int(f.bwLimit*1024/8))
+		limiter = rate.NewLimiter(rate.Limit(f.bwLimit*1024), int(f.bwLimit*1024))
 	}
 	pool, _ := ants.NewPool(DefaultGoroutinePoolSize)
 	defer pool.Release()
@@ -79,6 +84,10 @@ func (f *UDPDataForwarder) Start() error {
 			}
 		})
 	}
+}
+
+func (f *UDPDataForwarder) reply() error {
+	return errors.New("UDP does not require a separate reply method due to its forwarding mechanism")
 }
 
 func (f *UDPDataForwarder) WithSrc(src net.UDPConn) *UDPDataForwarder {

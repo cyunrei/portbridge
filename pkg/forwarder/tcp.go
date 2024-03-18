@@ -22,31 +22,17 @@ func (f *TCPDataForwarder) Start() error {
 	done := make(chan error, 2)
 
 	go func() {
-		var reader io.Reader
-		if f.bwLimit > 0 {
-			destConnReader := shapeio.NewReader(f.dst)
-			destConnReader.SetRateLimit(float64(1024 * f.bwLimit))
-			reader = destConnReader
-		} else {
-			reader = f.dst
+		err := f.forward()
+		if err != nil {
+			done <- err
 		}
-
-		_, err := io.Copy(f.src, reader)
-		done <- err
 	}()
 
 	go func() {
-		var reader io.Reader
-		if f.bwLimit > 0 {
-			srcConnReader := shapeio.NewReader(f.src)
-			srcConnReader.SetRateLimit(float64(1024 * f.bwLimit))
-			reader = srcConnReader
-		} else {
-			reader = f.src
+		err := f.reply()
+		if err != nil {
+			done <- err
 		}
-
-		_, err := io.Copy(f.dst, reader)
-		done <- err
 	}()
 
 	for i := 0; i < 2; i++ {
@@ -57,6 +43,32 @@ func (f *TCPDataForwarder) Start() error {
 	}
 
 	return nil
+}
+
+func (f *TCPDataForwarder) forward() error {
+	var reader io.Reader
+	if f.bwLimit > 0 {
+		destConnReader := shapeio.NewReader(f.dst)
+		destConnReader.SetRateLimit(float64(1024 * f.bwLimit))
+		reader = destConnReader
+	} else {
+		reader = f.dst
+	}
+	_, err := io.Copy(f.src, reader)
+	return err
+}
+
+func (f *TCPDataForwarder) reply() error {
+	var reader io.Reader
+	if f.bwLimit > 0 {
+		srcConnReader := shapeio.NewReader(f.src)
+		srcConnReader.SetRateLimit(float64(1024 * f.bwLimit))
+		reader = srcConnReader
+	} else {
+		reader = f.src
+	}
+	_, err := io.Copy(f.dst, reader)
+	return err
 }
 
 func (f *TCPDataForwarder) WithSrc(src net.Conn) *TCPDataForwarder {
