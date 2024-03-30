@@ -1,7 +1,7 @@
 PROJECT_NAME := portbridge
 GO := go
 VERSION := $(shell git describe --tags)
-LDFLAGS := -ldflags "-X main.version=$(subst v,,$(VERSION))"
+LDFLAGS := -ldflags "-s -w -X main.version=$(subst v,,$(VERSION))"
 BUILD_DIR := build
 MAIN_FILE := cmd/main.go
 
