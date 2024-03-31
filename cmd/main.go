@@ -7,6 +7,7 @@ import (
 	"github.com/cyunrei/portbridge/pkg/forwarder"
 	"github.com/jessevdk/go-flags"
 	log "github.com/sirupsen/logrus"
+	"io"
 	"os"
 	"os/signal"
 	"sync/atomic"
@@ -15,13 +16,9 @@ import (
 )
 
 var version string
+var opts options.Options
 
 func main() {
-
-	log.SetFormatter(&log.TextFormatter{
-		FullTimestamp:   true,
-		TimestampFormat: time.StampMilli,
-	})
 
 	rs := parseOptions()
 	done := make(chan struct{})
@@ -53,11 +50,12 @@ func main() {
 }
 
 func parseOptions() []rules.Rule {
-	var opts options.Options
 	var rs []rules.Rule
-	parser := flags.NewParser(&opts, flags.None)
+	parser := flags.NewNamedParser("portbridge", flags.None)
+	parser.AddGroup("Options", "Application Options", &opts)
 	_, err := parser.ParseArgs(os.Args)
-
+	parser.Usage = "[OPTIONS]"
+	initLog()
 	switch {
 	case opts.GenRulesFile:
 		generateEmptyRulesFile()
@@ -109,5 +107,22 @@ func generateEmptyRulesFile() {
 	err = rules.GenerateEmptyFile("example.json")
 	if err != nil {
 		log.Fatalf("Error: %s", err)
+	}
+}
+
+func initLog() {
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp:   true,
+		TimestampFormat: time.StampMilli,
+	})
+	if opts.LogFile != "" {
+		file, err := os.OpenFile(opts.LogFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if err == nil {
+			log.SetOutput(io.MultiWriter(os.Stdout, file))
+		} else {
+			log.Fatal("Failed to open log file: ", opts.LogFile, ", Error: ", err)
+		}
+	} else {
+		log.SetOutput(os.Stdout)
 	}
 }

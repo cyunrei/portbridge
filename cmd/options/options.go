@@ -9,6 +9,7 @@ type Options struct {
 	UDPTimeout      uint64 `long:"udp-timeout" description:"UDP data forwarding time out in second" default:"5"`
 	RulesFile       string `short:"f" long:"rules-file" description:"Batch port forwarding rules file path"`
 	GenRulesFile    bool   `short:"g" long:"gen-rules-file" description:"Generate an example rules file for reference and modification"`
+	LogFile         string `short:"l" long:"log-file" description:"Path to the logfile where logs will be written"`
 	Help            bool   `short:"h" long:"help" description:"Print help message"`
 	Version         bool   `short:"v" long:"version" description:"Print the version number"`
 }

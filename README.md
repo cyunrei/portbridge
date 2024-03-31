@@ -2,31 +2,35 @@
 
 Portbridge is a port forwarding tool with cross-platform support.
 
-# Features
+## Features
 
 - Cross-Platform Support (Linux / Windows / Darwin)
 - TCP and UDP Forward Support
+- IPv4 and IPv6 Mutual Forward Support
 - TCP and UDP Bandwidth Limit Support
 - Batch Port Forwarding Rules Support
 
-# Usage
-
-Portbridge Options:
+## Usage
 
 ```
-  -s, --source=             Source address and port to bind locally
-  -d, --destination=        Destination address and port to connect remotely
-  -p, --protocol=           Source protocol type (e.g., tcp, udp)
-  -b, --bandwidth-limit=    Bandwidth limit in KiB (default: 0)
-      --udp-buffer-size=    UDP data forwarding buffer size in bytes (default: 1024)
-      --udp-timeout=        UDP data forwarding time out in second (default: 5)
-  -f, --rules-file=         Batch port forwarding rules file path
-  -g, --gen-rules-file      Generate an example rules file for reference and modification
-  -h, --help                Print help message
-  -v, --version             Print the version number
+Usage:
+  portbridge [OPTIONS]
+
+Options:
+  -s, --source=          Source address and port to bind locally
+  -d, --destination=     Destination address and port to connect remotely
+  -p, --protocol=        Source protocol type (e.g., tcp, udp)
+  -b, --bandwidth-limit= Bandwidth limit in KiB (default: 0)
+      --udp-buffer-size= UDP data forwarding buffer size in bytes (default: 1024)
+      --udp-timeout=     UDP data forwarding time out in second (default: 5)
+  -f, --rules-file=      Batch port forwarding rules file path
+  -g, --gen-rules-file   Generate an example rules file for reference and modification
+  -l, --log-file=        Path to the logfile where logs will be written
+  -h, --help             Print help message
+  -v, --version          Print the version number
 ```
 
-Examples:
+### Examples:
 
 - Access the Cloudflare DNS (ipv6) via 127.0.0.2:53 with 100 udp buffer size
 
